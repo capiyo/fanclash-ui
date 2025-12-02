@@ -1,8 +1,10 @@
-import { MapPin, Clock, DollarSign, Building2, ThumbsUp, Eye, MessageSquare, 
+import { 
+  MapPin, Clock, DollarSign, Building2, ThumbsUp, Eye, MessageSquare, 
   Heart, Share2, Zap, TrendingUp, Calendar, Trophy, Users, Sparkles, Target, 
-  UserPlus, Flame, Crown, Star, ShieldCheck, Swords, TargetIcon, AlertCircle, 
+  UserPlus, Flame, Crown, Star, ShieldCheck, Swords, AlertCircle, 
   Coins, Award, Wallet, TrendingDown, Users2, Bell, CheckCircle, XCircle, 
-  BarChart3, Lock, Unlock, Gavel, Scale, Percent, Timer, Plus, Phone } from "lucide-react";
+  BarChart3, Lock, Unlock, Gavel, Scale, Percent, Timer, Plus, Phone 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -25,7 +27,7 @@ interface PledgeData {
   amount: number;
   away_team: string;
   home_team: string;
-  selection: string; // "homeTeam" or "awayTeam" or "draw"
+  selection: string;
   fan: string;
   username: string;
   phone: string;
@@ -45,7 +47,7 @@ interface PledgeData {
 
 interface BetAgainstData {
   amount: number;
-  against_selection: string; // Opposite of existing selection
+  against_selection: string;
   against_amount: number;
   against_username: string;
   pledge_id: string;
@@ -63,7 +65,6 @@ const PledgeCard = () => {
 
   const { toast } = useToast();
 
-  // Team avatar images
   const teamAvatars = {
     team1: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=100&h=100&fit=crop",
     team2: "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=100&h=100&fit=crop",
@@ -125,7 +126,6 @@ const PledgeCard = () => {
       }
       
       const data: PledgeData[] = await response.json();
-      // Add mock data for enhanced display
       const enhancedData = data.map(pledge => ({
         ...pledge,
         status: pledge.status || 'active',
@@ -154,96 +154,116 @@ const PledgeCard = () => {
   });
 
   return (
-    <div className="h-screen bg-background text-foreground p-2">
-      {/* Header with User Balance */}
-     
+    <div className="h-screen bg-background overflow-y-auto">
+      {/* Header with User Balance - Same structure as your Posts component */}
+      <div className="max-w-2xl mx-auto pt-4 px-4">
+       
+      
 
-      {/* Stats Bar */}
-    
-
-      {error && (
-        <div className="max-w-[900px] mx-auto text-center py-12">
-          <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/30">
-              <XCircle className="w-10 h-10 text-destructive" />
-            </div>
-            <h3 className="text-destructive text-lg font-bold mb-2">Connection Failed</h3>
-            <p className="text-muted-foreground mb-6">{error}</p>
-            <div className="flex gap-3 justify-center">
-              <Button 
-                onClick={() => window.location.reload()} 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-              >
-                <Zap className="w-4 h-4 mr-2" />
-                Retry Connection
-              </Button>
-              <Button
-                variant="outline"
-                className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Notify Me
-              </Button>
-            </div>
+        {/* Stats Bar */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-card rounded-xl p-4 text-center">
+            <p className="text-muted-foreground text-sm mb-1">Total Bets</p>
+            <p className="text-foreground text-2xl font-bold">{pledges.length}</p>
           </div>
-        </div>
-      )}
-
-      {/* P2P Bets Grid */}
-      <div className="max-w-[900px] mx-auto">
-        <div className="h-[calc(100vh-320px)] overflow-y-auto scrollbar-thin scrollbar-thumb-primary scrollbar-track-secondary pr-2">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
-            {filteredPledges.map((pledge, key) => (
-              <div key={key} className="w-full transform transition-transform duration-300 hover:scale-[1.02]">
-                <P2PBettingCard pledge={pledge} teamAvatars={teamAvatars} />
-              </div>
-            ))}
+          <div className="bg-card rounded-xl p-4 text-center">
+            <p className="text-muted-foreground text-sm mb-1">Available</p>
+            <p className="text-primary text-2xl font-bold">
+              {pledges.filter(p => p.status === 'active').length}
+            </p>
+          </div>
+          <div className="bg-card rounded-xl p-4 text-center">
+            <p className="text-muted-foreground text-sm mb-1">Total Value</p>
+            <p className="text-foreground text-2xl font-bold">
+              ₿{pledges.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+            </p>
           </div>
         </div>
       </div>
 
-      {loading && (
-        <div className="max-w-[900px] mx-auto text-center py-16">
-          <div className="relative inline-block mb-6">
-            <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin shadow-sm"></div>
-            <div className="absolute inset-0 w-20 h-20 border-2 border-primary/10 rounded-full animate-ping"></div>
-          </div>
-          <p className="text-primary text-lg font-bold bg-primary/5 inline-block px-6 py-3 rounded-xl border border-primary/10">
-            Loading P2P betting opportunities...
-          </p>
-          <p className="text-muted-foreground text-sm mt-3">Finding the best bets against other players</p>
+      {/* Main Cards Container - Same structure as your Posts component */}
+      <div className="max-w-2xl mx-auto">
+        <div className="space-y-4">
+          {filteredPledges.map((pledge, key) => (
+            <div key={key} className="w-full">
+              <P2PBettingCard pledge={pledge} teamAvatars={teamAvatars} />
+            </div>
+          ))}
         </div>
-      )}
 
-      {!loading && filteredPledges.length === 0 && !error && (
-        <div className="max-w-[900px] mx-auto text-center py-16">
-          <div className="bg-card border border-border rounded-xl p-12 shadow-sm">
-            <div className="w-28 h-28 mx-auto mb-8 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10">
-              <Swords className="w-14 h-14 text-primary" />
-            </div>
-            <h3 className="text-foreground text-2xl font-bold mb-3">No P2P Bets Available</h3>
-            <p className="text-muted-foreground text-lg mb-8">Be the first to create a peer-to-peer bet!</p>
-            <div className="flex gap-4 justify-center">
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg shadow-sm">
-                <Plus className="w-5 h-5 mr-2" />
-                Create P2P Bet
-              </Button>
-              <Button 
-                variant="outline" 
-                className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary px-8 py-6 text-lg"
-              >
-                <Timer className="w-5 h-5 mr-2" />
-                Set Reminder
-              </Button>
+        {/* Loading State */}
+        {loading && (
+          <div className="bg-card border-b border-border p-10">
+            <div className="text-center">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                <div className="absolute inset-0 w-20 h-20 border-2 border-primary/10 rounded-full animate-ping"></div>
+              </div>
+              <p className="text-primary text-lg font-bold mb-3">Loading P2P betting opportunities...</p>
+              <p className="text-muted-foreground text-sm">Finding the best bets against other players</p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="bg-card border-b border-border p-8">
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
+                <XCircle className="w-10 h-10 text-destructive" />
+              </div>
+              <h3 className="text-destructive text-lg font-bold mb-2">Connection Failed</h3>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <div className="flex gap-3 justify-center">
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Retry Connection
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-muted-foreground hover:text-foreground hover:bg-secondary"
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  Notify Me
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && filteredPledges.length === 0 && !error && (
+          <div className="bg-card border-b border-border p-10">
+            <div className="text-center">
+              <div className="w-28 h-28 mx-auto mb-8 rounded-full bg-primary/5 flex items-center justify-center">
+                <Swords className="w-14 h-14 text-primary" />
+              </div>
+              <h3 className="text-foreground text-2xl font-bold mb-3">No P2P Bets Available</h3>
+              <p className="text-muted-foreground text-lg mb-8">Be the first to create a peer-to-peer bet!</p>
+              <div className="flex gap-4 justify-center">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg shadow-sm">
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create P2P Bet
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="text-muted-foreground hover:text-foreground hover:bg-secondary px-8 py-6 text-lg"
+                >
+                  <Timer className="w-5 h-5 mr-2" />
+                  Set Reminder
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-// Enhanced P2P Betting Card Component using your color scheme
 function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvatars: any }) {
   const [isHovered, setIsHovered] = useState(false);
   const [betAgainstAmount, setBetAgainstAmount] = useState("");
@@ -312,7 +332,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
       toast({
         title: "⚔️ BET ACCEPTED! ⚔️",
         description: `You're now betting ₿${betAgainstAmount} against ${pledge.username}`,
-        className: "bg-primary text-primary-foreground border-none"
+        className: "bg-primary text-primary-foreground"
       });
       
       setBetAgainstAmount("");
@@ -373,8 +393,8 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
           <div className="absolute inset-0 bg-primary/5 rounded-xl blur-xl -z-10"></div>
         )}
         
-        {/* Main Card */}
-        <Card className="relative bg-card backdrop-blur-sm border border-border rounded-xl shadow-sm hover:shadow-md transition-all duration-300 w-full min-h-[420px] h-auto">
+        {/* Main Card - Full width within max-w-2xl container */}
+        <div className="relative bg-card backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all duration-300 w-full min-h-[420px] h-auto border-b border-border">
           {/* Top Status Bar */}
           <div className={cn(
             "absolute top-0 left-0 right-0 h-1 rounded-t-xl",
@@ -385,15 +405,15 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
               : "bg-muted"
           )}></div>
           
-          <CardHeader className="pb-2 pt-6 px-6">
+          <div className="pb-2 pt-6 px-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Badge className="bg-primary/10 text-primary border border-primary/30 text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
+                <Badge className="bg-primary/10 text-primary text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
                   <Crown className="w-3 h-3 text-primary" />
                   {pledge.sport_type?.toUpperCase() || "SPORTS BET"}
                   <div className="w-1 h-1 bg-primary rounded-full animate-pulse"></div>
                 </Badge>
-                <div className="flex items-center gap-2 text-muted-foreground text-xs bg-secondary px-3 py-1.5 rounded-full border border-border">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs bg-secondary px-3 py-1.5 rounded-full">
                   <Timer className="w-3 h-3 text-primary" />
                   <span>{formatDate(pledge.match_time || pledge.created_at || "")}</span>
                 </div>
@@ -401,15 +421,15 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
               <Badge className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-bold",
                 pledge.status === 'active'
-                  ? "bg-primary/10 text-primary border border-primary/30"
-                  : "bg-warning/10 text-warning border border-warning/30"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-warning/10 text-warning"
               )}>
                 {pledge.status === 'active' ? "OPEN" : "MATCHED"}
               </Badge>
             </div>
 
-            {/* Bettor Profile */}
-            <div className="flex items-center justify-between mb-6 bg-secondary rounded-xl p-4 border border-border">
+            {/* Bettor Profile - Full width section */}
+            <div className="flex items-center justify-between mb-6 bg-secondary rounded-xl p-4">
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Avatar className="w-14 h-14 border-2 border-primary shadow-sm">
@@ -440,10 +460,10 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsFollowing(!isFollowing)}
-                className={`h-8 px-3 rounded-lg border ${
+                className={`h-8 px-3 rounded-lg ${
                   isFollowing
-                    ? "bg-primary/10 text-primary border-primary/30"
-                    : "bg-secondary text-muted-foreground hover:text-foreground hover:border-border border-border"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <UserPlus className="w-3 h-3 mr-1" />
@@ -451,15 +471,15 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
               </Button>
             </div>
 
-            {/* Matchup Display */}
+            {/* Matchup Display - Full width layout */}
             <div className="text-center mb-6">
               <div className="flex items-center justify-between">
                 {/* Home Team */}
                 <div className={cn(
-                  "text-center flex-1 p-4 rounded-xl border transition-all duration-300",
+                  "text-center p-4 rounded-xl transition-all duration-300 flex-1",
                   existingSelection === "homeTeam" 
-                    ? "bg-primary/10 border-primary shadow-sm" 
-                    : "bg-secondary border-border group-hover:border-primary/50"
+                    ? "bg-primary/10 shadow-sm" 
+                    : "bg-secondary group-hover:border-primary/50"
                 )}>
                   <Avatar className="w-16 h-16 border-2 border-primary/30 mx-auto mb-3 shadow-sm">
                     <AvatarImage src={getTeamAvatar(pledge.home_team)} />
@@ -472,7 +492,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                   {existingSelection === "homeTeam" && (
                     <div className="mt-2">
                       <Badge className="bg-primary/10 text-primary text-xs px-2 py-0.5">
-                        <TargetIcon className="w-2.5 h-2.5 mr-1" />
+                        <Target className="w-2.5 h-2.5 mr-1" />
                         Betting On
                       </Badge>
                     </div>
@@ -481,12 +501,12 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
 
                 {/* VS Center */}
                 <div className="flex flex-col items-center mx-4">
-                  <div className="w-14 h-14 rounded-full bg-secondary border-2 border-border flex items-center justify-center shadow-sm mb-3">
+                  <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center shadow-sm mb-3">
                     <Swords className="w-6 h-6 text-primary" />
                   </div>
                   <div className="text-center">
                     <p className="text-muted-foreground text-xs font-bold mb-1">VS</p>
-                    <div className="bg-primary/10 px-3 py-1 rounded-lg border border-primary/30">
+                    <div className="bg-primary/10 px-3 py-1 rounded-lg">
                       <p className="text-primary text-xs">P2P BET</p>
                     </div>
                   </div>
@@ -494,10 +514,10 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
 
                 {/* Away Team */}
                 <div className={cn(
-                  "text-center flex-1 p-4 rounded-xl border transition-all duration-300",
+                  "text-center p-4 rounded-xl transition-all duration-300 flex-1",
                   existingSelection === "awayTeam" 
-                    ? "bg-primary/10 border-primary shadow-sm" 
-                    : "bg-secondary border-border group-hover:border-primary/50"
+                    ? "bg-primary/10 shadow-sm" 
+                    : "bg-secondary group-hover:border-primary/50"
                 )}>
                   <Avatar className="w-16 h-16 border-2 border-primary/30 mx-auto mb-3 shadow-sm">
                     <AvatarImage src={getTeamAvatar(pledge.away_team)} />
@@ -510,7 +530,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                   {existingSelection === "awayTeam" && (
                     <div className="mt-2">
                       <Badge className="bg-primary/10 text-primary text-xs px-2 py-0.5">
-                        <TargetIcon className="w-2.5 h-2.5 mr-1" />
+                        <Target className="w-2.5 h-2.5 mr-1" />
                         Betting On
                       </Badge>
                     </div>
@@ -521,17 +541,17 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
               {/* Draw Option */}
               <div className="flex justify-center mt-4">
                 <div className={cn(
-                  "px-5 py-2.5 rounded-xl border min-w-[120px] transition-all duration-300",
+                  "px-5 py-2.5 rounded-xl min-w-[120px] transition-all duration-300",
                   existingSelection === "draw"
-                    ? "bg-primary/10 border-primary shadow-sm" 
-                    : "border-border bg-secondary"
+                    ? "bg-primary/10 shadow-sm" 
+                    : "bg-secondary"
                 )}>
                   <p className="text-sm font-bold text-foreground mb-1">Draw</p>
                   <p className="text-primary text-xs">Odds: {pledge.odds?.draw || "3.50"}</p>
                   {existingSelection === "draw" && (
                     <div className="mt-2">
                       <Badge className="bg-primary/10 text-primary text-xs px-2 py-0.5">
-                        <TargetIcon className="w-2.5 h-2.5 mr-1" />
+                        <Target className="w-2.5 h-2.5 mr-1" />
                         Betting On
                       </Badge>
                     </div>
@@ -539,11 +559,11 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 </div>
               </div>
             </div>
-          </CardHeader>
+          </div>
 
-          <CardContent className="space-y-4 pb-5 px-6">
+          <div className="space-y-4 pb-5 px-6">
             {/* P2P Bet Against Section */}
-            <div className="bg-secondary border border-border rounded-xl p-4">
+            <div className="bg-secondary rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-primary" />
@@ -582,10 +602,10 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                             variant={betAgainstOption === option.value ? "default" : "outline"}
                             onClick={() => setBetAgainstOption(option.value)}
                             className={cn(
-                              "h-12 justify-between transition-all duration-300 group border",
+                              "h-12 justify-between transition-all duration-300 group",
                               betAgainstOption === option.value
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border-border"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                             )}
                           >
                             <div className="flex items-center gap-2">
@@ -596,7 +616,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                               <span className={`text-sm font-bold ${risk.color}`}>
                                 {option.odds} odds
                               </span>
-                              <Badge className="bg-secondary text-muted-foreground text-xs border border-border">
+                              <Badge className="bg-secondary text-muted-foreground text-xs">
                                 {risk.label} RISK
                               </Badge>
                             </div>
@@ -617,12 +637,12 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                         value={betAgainstAmount}
                         onChange={(e) => setBetAgainstAmount(e.target.value)}
                         placeholder="Enter stake amount..."
-                        className="flex-1 bg-background border border-input rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-base"
+                        className="flex-1 bg-background rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-base"
                       />
                       <Button
                         onClick={() => setBetAgainstAmount(pledge.amount.toString())}
                         variant="outline"
-                        className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        className="text-muted-foreground hover:text-foreground hover:bg-secondary"
                       >
                         Match
                       </Button>
@@ -636,7 +656,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                           variant="outline"
                           size="sm"
                           onClick={() => setBetAgainstAmount(quickAmount)}
-                          className="flex-1 text-sm h-9 bg-secondary border-border text-muted-foreground hover:text-foreground hover:bg-secondary/80 hover:border-primary/50 shadow-sm transition-all duration-200"
+                          className="flex-1 text-sm h-9 bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 shadow-sm transition-all duration-200"
                         >
                           ₿{quickAmount}
                         </Button>
@@ -646,7 +666,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
 
                   {/* Potential Win & Action */}
                   {betAgainstAmount && betAgainstOption && (
-                    <div className="bg-primary/5 rounded-lg p-4 border border-primary/10">
+                    <div className="bg-primary/5 rounded-lg p-4">
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="text-primary text-xs font-bold mb-1">POTENTIAL WIN</p>
@@ -682,7 +702,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                         setBetAgainstOption("");
                       }}
                       variant="outline"
-                      className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary h-12"
+                      className="text-muted-foreground hover:text-foreground hover:bg-secondary h-12"
                     >
                       <XCircle className="w-5 h-5 mr-2" />
                       Cancel
@@ -694,14 +714,14 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
 
             {/* Additional Info */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="text-center bg-secondary border border-border rounded-lg p-3 shadow-sm">
+              <div className="text-center bg-secondary rounded-lg p-3 shadow-sm">
                 <p className="text-muted-foreground text-xs font-bold mb-1">INITIAL STAKE</p>
                 <div className="flex items-center justify-center gap-2">
                   <Coins className="w-4 h-4 text-primary" />
                   <p className="text-foreground text-lg font-bold">₿{pledge.amount}</p>
                 </div>
               </div>
-              <div className="text-center bg-secondary border border-border rounded-lg p-3 shadow-sm">
+              <div className="text-center bg-secondary rounded-lg p-3 shadow-sm">
                 <p className="text-muted-foreground text-xs font-bold mb-1">CONTACT</p>
                 <div className="flex items-center justify-center gap-2">
                   <Phone className="w-4 h-4 text-primary" />
@@ -713,7 +733,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
             {/* Status & Actions */}
             <div className="flex items-center justify-between pt-2">
               <div className="flex items-center gap-2">
-                <Badge className="bg-primary/10 text-primary border border-primary/30 px-3 py-1 rounded-full flex items-center gap-1">
+                <Badge className="bg-primary/10 text-primary px-3 py-1 rounded-full flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-primary" />
                   P2P SECURED
                 </Badge>
@@ -735,8 +755,8 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

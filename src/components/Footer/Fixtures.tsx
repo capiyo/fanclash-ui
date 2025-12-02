@@ -1,8 +1,11 @@
-import { MapPin, Clock, DollarSign, Building2, ThumbsUp, Eye, MessageSquare, 
+
+import { 
+  MapPin, Clock, DollarSign, Building2, ThumbsUp, Eye, MessageSquare, 
   Heart, Share2, Zap, TrendingUp, Calendar, Trophy, Users, Sparkles, Target, 
-  UserPlus, Flame, Crown, Star, ShieldCheck, Swords, TargetIcon, AlertCircle, 
+  UserPlus, Flame, Crown, Star, ShieldCheck, Swords, AlertCircle, 
   Coins, Award, Wallet, TrendingDown, Users2, Bell, CheckCircle, XCircle, 
-  BarChart3, Lock, Unlock, Gavel, Scale, Percent, Timer } from "lucide-react";
+  BarChart3, Lock, Unlock, Gavel, Scale, Percent, Timer 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -122,85 +125,104 @@ const Fixtures = () => {
   }
 
   return (
-    <div className="h-screen bg-background text-foreground ">
-        {/* User Balance & Quick Stats */}   
-       
-
-        
-
-      {/* Error State */}
-      {error && (
-        <div className="mx-auto text-center py-1">
-          <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/30">
-              <TrendingDown className="w-10 h-10 text-destructive" />
+    <div className="h-screen bg-background overflow-y-auto">
+      {/* Header with User Balance - Same structure as your Posts component */}
+      <div className="max-w-2xl mx-auto pt-4 px-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 p-6 bg-card rounded-xl shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-primary" />
             </div>
-            <h3 className="text-destructive text-lg font-bold mb-2">Connection Failed</h3>
-            <p className="text-muted-foreground mb-6">{error}</p>
-            <div className="flex gap-3 justify-center">
-              <Button 
-                onClick={() => window.location.reload()} 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-              >
-                <Zap className="w-4 h-4 mr-2" />
-                Retry Connection
-              </Button>
-              <Button
-                variant="outline"
-                className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Notify Me
-              </Button>
+            <div>
+              <p className="text-sm text-muted-foreground">Your Balance</p>
+              <p className="text-2xl font-bold text-foreground">₿{userBalance.toFixed(2)}</p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Scrollable Matches Container */}
-      <div className="max-w-[900px] mx-auto">
-        <div className="h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin scrollbar-thumb-primary scrollbar-track-secondary pr-2">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
-            {fixtures.map((fixture, key) => (
-              <div key={key} className="w-full transform transition-transform duration-300 hover:scale-[1.02]">
-                <MatchCard fixture={fixture} teamAvatars={teamAvatars} mockBettors={mockBettors} />
-              </div>
-            ))}
+          
+          <div className="flex gap-3">
+            <Badge className="bg-primary/10 text-primary px-4 py-2">
+              <Zap className="w-3 h-3 mr-2" />
+              Live Bets: {fixtures.length}
+            </Badge>
+            <Badge className="bg-secondary text-muted-foreground px-4 py-2">
+              <Users className="w-3 h-3 mr-2" />
+              Active: 1.2K
+            </Badge>
           </div>
         </div>
       </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div className="max-w-[900px] mx-auto text-center py-16">
-          <div className="relative inline-block mb-6">
-            <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin shadow-sm"></div>
-            <div className="absolute inset-0 w-20 h-20 border-2 border-primary/10 rounded-full animate-ping"></div>
-          </div>
-          <p className="text-primary text-lg font-bold bg-primary/5 inline-block px-6 py-3 rounded-xl border border-primary/10">
-            Loading live odds...
-          </p>
-          <p className="text-muted-foreground text-sm mt-3">Fetching best betting opportunities</p>
+      {/* Main Cards Container - Same structure as your Posts component */}
+      <div className="max-w-2xl mx-auto">
+        <div className="space-y-4">
+          {fixtures.map((fixture, key) => (
+            <div key={key} className="w-full">
+              <MatchCard fixture={fixture} teamAvatars={teamAvatars} mockBettors={mockBettors} />
+            </div>
+          ))}
         </div>
-      )}
 
-      {/* Empty State */}
-      {!loading && fixtures.length === 0 && !error && (
-        <div className="max-w-[900px] mx-auto text-center py-16">
-          <div className="bg-card border border-border rounded-xl p-10 shadow-sm">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10">
-              <Trophy className="w-12 h-12 text-primary" />
-            </div>
-            <p className="text-foreground text-xl font-bold mb-3">No matches available</p>
-            <p className="text-muted-foreground text-sm mb-6">New betting opportunities coming soon</p>
-            <div className="mt-6 flex justify-center space-x-2">
-              <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
-              <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-              <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+        {/* Error State */}
+        {error && (
+          <div className="bg-card border-b border-border p-8">
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
+                <TrendingDown className="w-10 h-10 text-destructive" />
+              </div>
+              <h3 className="text-destructive text-lg font-bold mb-2">Connection Failed</h3>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <div className="flex gap-3 justify-center">
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Retry Connection
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-muted-foreground hover:text-foreground hover:bg-secondary"
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  Notify Me
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="bg-card border-b border-border p-10">
+            <div className="text-center">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                <div className="absolute inset-0 w-20 h-20 border-2 border-primary/10 rounded-full animate-ping"></div>
+              </div>
+              <p className="text-primary text-lg font-bold mb-3">Loading live odds...</p>
+              <p className="text-muted-foreground text-sm">Fetching best betting opportunities</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && fixtures.length === 0 && !error && (
+          <div className="bg-card border-b border-border p-10">
+            <div className="text-center">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/5 flex items-center justify-center">
+                <Trophy className="w-12 h-12 text-primary" />
+              </div>
+              <p className="text-foreground text-xl font-bold mb-3">No matches available</p>
+              <p className="text-muted-foreground text-sm mb-6">New betting opportunities coming soon</p>
+              <div className="mt-6 flex justify-center space-x-2">
+                <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
+                <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -234,7 +256,7 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
     toast({
       title: "🎯 BET CONFIRMED! 🎯",
       description: `₿${betAmount} on ${selectedTeam} @ ${getSelectedOdds()} odds`,
-      className: "bg-primary text-primary-foreground border-none"
+      className: "bg-primary text-primary-foreground"
     });
     
     // Reset form
@@ -307,9 +329,9 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
 
   const getRiskColor = (odds: string) => {
     const oddNum = parseFloat(odds);
-    if (oddNum < 2.0) return "text-primary"; // Low risk
-    if (oddNum < 4.0) return "text-warning"; // Medium risk
-    return "text-destructive"; // High risk
+    if (oddNum < 2.0) return "text-primary";
+    if (oddNum < 4.0) return "text-warning";
+    return "text-destructive";
   };
 
   return (
@@ -318,7 +340,6 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Glow Effect on Hover */}
       <div className={cn(
         "relative transition-all duration-300 w-full",
         isHovered ? "scale-[1.02]" : "scale-100"
@@ -327,19 +348,19 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
           <div className="absolute inset-0 bg-primary/5 rounded-xl blur-xl -z-10"></div>
         )}
         
-        {/* Main Betting Card */}
-        <Card className="relative bg-card backdrop-blur-sm border border-border rounded-xl shadow-sm hover:shadow-md transition-all duration-300 w-full min-h-[420px] h-auto">
+        {/* Main Betting Card - Using div instead of Card for better width control */}
+        <div className="relative bg-card backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all duration-300 w-full min-h-[420px] h-auto border-b border-border">
           {/* Top Status Bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-primary rounded-t-xl"></div>
+          <div className="absolute top-0 left-0 right-0 h-1 bg-primary/50 rounded-t-xl"></div>
           
-          <CardHeader className="pb-2 pt-6 px-6">
+          <div className="pb-2 pt-6 px-6">
             <div className="flex items-center justify-between mb-3">
-              <Badge className="bg-primary/10 text-primary border border-primary/30 text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
+              <Badge className="bg-primary/10 text-primary text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
                 <Crown className="w-3 h-3 text-primary" />
                 {fixture.league.toUpperCase()}
                 <div className="w-1 h-1 bg-primary rounded-full animate-pulse ml-1"></div>
               </Badge>
-              <div className="flex items-center gap-2 text-muted-foreground text-xs bg-secondary px-3 py-1.5 rounded-full border border-border">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs bg-secondary px-3 py-1.5 rounded-full">
                 <Calendar className="w-3 h-3 text-primary" />
                 <span>{formatDate(fixture.date)}</span>
               </div>
@@ -354,17 +375,17 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                   onClick={() => handleTeamSelect("homeTeam")}
                 >
                   <div className={cn(
-                    "relative p-4 rounded-2xl transition-all duration-300 border-2",
+                    "relative p-4 rounded-2xl transition-all duration-300",
                     selectedBet === "homeTeam" 
-                      ? "bg-primary/10 border-primary shadow-sm" 
-                      : "border-border hover:border-primary/50 hover:bg-secondary group-hover/team:scale-105"
+                      ? "bg-primary/10" 
+                      : "hover:bg-secondary group-hover/team:scale-105"
                   )}>
                     <div className="relative">
                       <Avatar className={cn(
-                        "w-16 h-16 border-2 mx-auto mb-3 transition-all duration-300 shadow-sm",
+                        "w-16 h-16 mx-auto mb-3 transition-all duration-300 shadow-sm",
                         selectedBet === "homeTeam" 
-                          ? "border-primary bg-primary/5 shadow-sm" 
-                          : "border-border group-hover/team:border-primary/30 bg-secondary"
+                          ? "bg-primary/5" 
+                          : "bg-secondary group-hover/team:border-primary/30"
                       )}>
                         <AvatarImage src={getTeamAvatar(fixture.home_team)} />
                         <AvatarFallback className="bg-secondary text-foreground text-base font-bold">
@@ -396,15 +417,15 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
 
                 {/* VS & Draw */}
                 <div className="flex flex-col items-center mx-4">
-                  <div className="w-12 h-12 rounded-full bg-secondary border-2 border-border flex items-center justify-center shadow-sm mb-3">
+                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center shadow-sm mb-3">
                     <span className="text-primary text-sm font-bold">VS</span>
                   </div>
                   <div 
                     className={cn(
-                      "cursor-pointer transition-all duration-300 rounded-xl px-4 py-3 min-w-[80px] border-2 font-bold",
+                      "cursor-pointer transition-all duration-300 rounded-xl px-4 py-3 min-w-[80px] font-bold",
                       selectedBet === "draw" 
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm scale-105" 
-                        : "bg-secondary text-muted-foreground border-border hover:text-foreground hover:border-primary/50 hover:scale-105 shadow-sm"
+                        ? "bg-primary text-primary-foreground scale-105" 
+                        : "bg-secondary text-muted-foreground hover:text-foreground hover:scale-105 shadow-sm"
                     )}
                     onClick={() => handleTeamSelect("draw")}
                   >
@@ -419,17 +440,17 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                   onClick={() => handleTeamSelect("awayTeam")}
                 >
                   <div className={cn(
-                    "relative p-4 rounded-2xl transition-all duration-300 border-2",
+                    "relative p-4 rounded-2xl transition-all duration-300",
                     selectedBet === "awayTeam" 
-                      ? "bg-primary/10 border-primary shadow-sm" 
-                      : "border-border hover:border-primary/50 hover:bg-secondary group-hover/team:scale-105"
+                      ? "bg-primary/10" 
+                      : "hover:bg-secondary group-hover/team:scale-105"
                   )}>
                     <div className="relative">
                       <Avatar className={cn(
-                        "w-16 h-16 border-2 mx-auto mb-3 transition-all duration-300 shadow-sm",
+                        "w-16 h-16 mx-auto mb-3 transition-all duration-300 shadow-sm",
                         selectedBet === "awayTeam" 
-                          ? "border-primary bg-primary/5 shadow-sm" 
-                          : "border-border group-hover/team:border-primary/30 bg-secondary"
+                          ? "bg-primary/5" 
+                          : "bg-secondary group-hover/team:border-primary/30"
                       )}>
                         <AvatarImage src={getTeamAvatar(fixture.away_team)} />
                         <AvatarFallback className="bg-secondary text-foreground text-base font-bold">
@@ -460,9 +481,9 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                 </div>
               </div>
             </div>
-          </CardHeader>
+          </div>
 
-          <CardContent className="space-y-4 pb-5 px-6">
+          <div className="space-y-4 pb-5 px-6">
             {/* Selection Badge */}
             {selectedBet && (
               <div className="flex justify-center">
@@ -494,13 +515,13 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                     value={betAmount}
                     onChange={(e) => setBetAmount(e.target.value)}
                     placeholder="Enter amount..."
-                    className="flex-1 bg-background border border-input rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-base"
+                    className="flex-1 bg-background rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-base"
                   />
                   <Button
                     onClick={() => setBetAmount("")}
                     variant="outline"
                     size="sm"
-                    className="h-12 px-4 text-muted-foreground hover:text-foreground hover:bg-secondary border-border"
+                    className="h-12 px-4 text-muted-foreground hover:text-foreground hover:bg-secondary"
                   >
                     Clear
                   </Button>
@@ -514,7 +535,7 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                       variant="outline"
                       size="sm"
                       onClick={() => setBetAmount(quickAmount)}
-                      className="flex-1 text-sm h-9 bg-secondary border-border text-muted-foreground hover:text-foreground hover:bg-secondary/80 hover:border-primary/50 shadow-sm transition-all duration-200"
+                      className="flex-1 text-sm h-9 bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 shadow-sm transition-all duration-200"
                     >
                       ₿{quickAmount}
                     </Button>
@@ -523,7 +544,7 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
 
                 {/* Potential Win Calculation */}
                 {betAmount && (
-                  <div className="bg-primary/5 rounded-lg p-4 border border-primary/10">
+                  <div className="bg-primary/5 rounded-lg p-4">
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-primary text-xs font-bold mb-1">POTENTIAL WIN</p>
@@ -544,7 +565,7 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
             )}
 
             {/* Recent Bettors */}
-            <div className="flex justify-between items-center bg-secondary rounded-xl p-3 border border-border">
+            <div className="flex justify-between items-center bg-secondary rounded-xl p-3">
               <div className="flex -space-x-3">
                 {mockBettors.map((bettor, index) => (
                   <div key={index} className="relative">
@@ -571,10 +592,10 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                 variant="ghost"
                 size="sm"
                 onClick={handleLike}
-                className={`flex items-center space-x-2 transition-all duration-300 h-9 px-4 rounded-lg border shadow-sm ${
+                className={`flex items-center space-x-2 transition-all duration-300 h-9 px-4 rounded-lg shadow-sm ${
                   isLiked 
-                    ? "bg-destructive/10 text-destructive border-destructive/30" 
-                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border-border"
+                    ? "bg-destructive/10 text-destructive" 
+                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                 }`}
               >
                 <Heart 
@@ -589,7 +610,7 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                 variant="ghost"
                 size="sm"
                 onClick={handleComment}
-                className="flex items-center space-x-2 bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border transition-all duration-300 h-9 px-4 rounded-lg shadow-sm"
+                className="flex items-center space-x-2 bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all duration-300 h-9 px-4 rounded-lg shadow-sm"
               >
                 <MessageSquare className="h-4 w-4" />
                 <span className="text-xs font-bold">{commentCount}</span>
@@ -599,10 +620,10 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                 variant="ghost"
                 size="sm"
                 onClick={handleFollow}
-                className={`flex items-center space-x-2 transition-all duration-300 h-9 px-4 rounded-lg border shadow-sm ${
+                className={`flex items-center space-x-2 transition-all duration-300 h-9 px-4 rounded-lg shadow-sm ${
                   isFollowing
-                    ? "bg-primary/10 text-primary border-primary/30"
-                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border-border"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                 }`}
               >
                 <UserPlus className="h-4 w-4" />
@@ -617,10 +638,10 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
                 className={cn(
                   "w-full transition-all duration-300 text-sm h-12 shadow-sm hover:shadow-md font-bold relative overflow-hidden group",
                   selectedBet && betAmount
-                    ? "bg-primary hover:bg-primary/90 text-primary-foreground ring-2 ring-primary/30" 
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
                     : selectedBet
-                    ? "bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20"
-                    : "bg-secondary text-muted-foreground border border-border hover:text-foreground cursor-not-allowed"
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "bg-secondary text-muted-foreground hover:text-foreground cursor-not-allowed"
                 )}
                 disabled={!selectedBet || !betAmount}
               >
@@ -633,26 +654,26 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
             {/* Match Stats */}
             <div className="flex justify-center gap-6 pt-2">
               <div className="text-center">
-                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg border border-border">
+                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg">
                   <Eye className="w-4 h-4" />
                   <span className="text-xs font-bold">2.1K</span>
                 </div>
               </div>
               <div className="text-center">
-                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg border border-border">
+                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg">
                   <Share2 className="w-4 h-4" />
                   <span className="text-xs font-bold">Share Bet</span>
                 </div>
               </div>
               <div className="text-center">
-                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg border border-border">
+                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg">
                   <TrendingUp className="w-4 h-4" />
                   <span className="text-xs font-bold">Stats</span>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

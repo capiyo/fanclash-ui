@@ -497,39 +497,8 @@ const BettingPostCard: React.FC<BettingPostCardProps> = ({
       </div>
 
       {/* Bet Info Banner */}
-      <div className="px-4 pb-3">
-        <div className="bg-secondary rounded-xl p-3 border border-border">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-muted-foreground text-xs font-medium mb-1">BET DETAILS</p>
-              <div className="flex items-center gap-4">
-                <div>
-                  <p className="text-primary text-sm font-bold">₿{post.bet_amount}</p>
-                  <p className="text-muted-foreground text-xs">Stake</p>
-                </div>
-                <div className="h-4 w-px bg-border"></div>
-                <div>
-                  <p className="text-foreground text-sm font-bold">{post.odds}</p>
-                  <p className="text-muted-foreground text-xs">Odds</p>
-                </div>
-                <div className="h-4 w-px bg-border"></div>
-                <div>
-                  <p className="text-primary text-sm font-bold">₿{calculatePotentialWin()}</p>
-                  <p className="text-muted-foreground text-xs">Potential</p>
-                </div>
-              </div>
-            </div>
-            {post.bet_outcome === 'win' && (
-              <div className="bg-success/10 px-3 py-2 rounded-lg border border-success/30">
-                <div className="flex items-center gap-1">
-                  <Coins className="h-4 w-4 text-success" />
-                  <span className="text-success text-sm font-bold">+₿{((post.bet_amount || 0) * (parseFloat(post.odds || '1') - 1)).toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      
+           
 
       {/* Image Section */}
       {hasValidImage && !imageError && (
