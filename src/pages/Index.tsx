@@ -4,8 +4,12 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { HeroSection } from "@/components/home/HeroSection";
 import { PostsFeed } from "@/components/home/PostsFeed";
 import { FixturesList } from "@/components/home/FixturesList";
-import { MessageSquare, Calendar } from "lucide-react";
+import { MessageSquare, Calendar,CircleDotDashed,FileCheck  } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Posts from "@/components/Footer/Posts";
+import PledgeCard from "@/components/Footer/PledgeCard";
+import Fixtures from "@/components/Footer/Fixtures";
+
 
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,21 +34,35 @@ const Index = () => {
                   className="flex-1 gap-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
                 >
                   <MessageSquare className="h-4 w-4" />
-                  Posts
+                  posts
                 </TabsTrigger>
+
+
                 <TabsTrigger 
                   value="fixtures" 
                   className="flex-1 gap-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
                 >
                   <Calendar className="h-4 w-4" />
-                  Fixtures
+                  fixtures
+                </TabsTrigger>
+
+
+                <TabsTrigger 
+                  value="pledges" 
+                  className="flex-1 gap-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+                >
+                  <FileCheck className="h-4 w-4" />
+                  pledges
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="posts" className="mt-4">
-                <PostsFeed />
+              <TabsContent value="posts" className="mt-1">
+                <Posts/>
               </TabsContent>
-              <TabsContent value="fixtures" className="mt-4">
-                <FixturesList />
+              <TabsContent value="fixtures" className="mt-1">
+                <Fixtures />
+              </TabsContent>
+              <TabsContent value="pledges" className="mt-1">
+                <PledgeCard/>
               </TabsContent>
             </Tabs>
           </div>

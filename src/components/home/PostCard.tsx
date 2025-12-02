@@ -34,6 +34,24 @@ export const PostCard = ({
     setLikes(liked ? likes - 1 : likes + 1);
   };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   return (
     <article className="glass-card-hover p-4 mb-4 animate-fade-in">
       {/* Header */}
