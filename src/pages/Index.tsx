@@ -14,6 +14,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/components/ReduxPages/store";
 import { useAppDispatch } from "@/components/ReduxPages/store";
 import { setLaydata } from "@/components/ReduxPages/slices/overlaySlice";
+import { LoginModal } from "@/components/Footer/LoginModal";
 
 
 const Index = () => {
@@ -25,7 +26,8 @@ const Index = () => {
       const [userId, setUserId] = useState<string>(""); 
       const [phone,setPhone]=useState("")
       const [caption, setCaption] = useState<string>("");
-      const[isOpen,setisOpen]=useState(false)
+      const[postisOpen,setPostOpen]=useState(false)
+      const[loginOpen,setLoging]=useState(false)
       const dispatch=useAppDispatch()
     console.log(overlay)
 
@@ -50,12 +52,21 @@ const Index = () => {
           console.error("Error parsing user data:", error);
         }
         if(overlay==="addpost"){
-          setisOpen(true)
+          setPostOpen(true)
 
         }
         else{
-          setisOpen(false)
+          setPostOpen(false)
         }
+
+        if(overlay==="login"){
+          setLoging(true)
+
+        }
+        else{
+          setLoging(false)
+        }
+        
 
 
 
@@ -135,8 +146,11 @@ const Index = () => {
             </section>
           </div>
         </div>
-         <AddPostModal      
-         isOpen={isOpen} 
+         <AddPostModal     
+         isOpen={postisOpen} 
+        onClose={changeLayData}   />
+        <LoginModal  
+         isOpen={loginOpen} 
         onClose={changeLayData}   />
       </main>
     </div>

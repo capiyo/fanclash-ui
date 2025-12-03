@@ -20,11 +20,12 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
     const dispatch=useAppDispatch()
   
 
-  const handlePost=()=>{
+  const handleModal=(value)=>{
+  
     setpost("addpost")
     console.log("hellooo")
     setIsModalOpen(true)
-     dispatch(setLaydata("addpost"));
+     dispatch(setLaydata(value));
   }
 
   return (
@@ -63,7 +64,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             variant="ghost"
             size="icon"
             className="md:hidden text-muted-foreground hover:text-foreground"
-           onClick={handlePost}
+           onClick={()=>handleModal('addpost')}
           >
             <PenSquare className="h-5 w-5" />
           </Button>
@@ -89,6 +90,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           </Button>
 
           <Button
+          onClick={()=>handleModal("login")}
             variant="ghost"
             size="icon"
             className="text-muted-foreground hover:text-foreground"
