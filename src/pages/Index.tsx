@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { HeroSection } from "@/components/home/HeroSection";
@@ -10,11 +10,60 @@ import Posts from "@/components/Footer/Posts";
 import PledgeCard from "@/components/Footer/PledgeCard";
 import Fixtures from "@/components/Footer/Fixtures";
 import AddPostModal from "@/components/Footer/AddPostalModal";
+import { useSelector } from "react-redux";
+import { RootState } from "@/components/ReduxPages/store";
+import { useAppDispatch } from "@/components/ReduxPages/store";
+import { setLaydata } from "@/components/ReduxPages/slices/overlaySlice";
 
 
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
    const [isModalOpen, setIsModalOpen] = useState(false);
+    const overlay = useSelector((state: RootState) => state.laydata.overlay);
+    const [message, setMessage] = useState<string>("");
+      const [username, setUsername] = useState<string>("");
+      const [userId, setUserId] = useState<string>(""); 
+      const [phone,setPhone]=useState("")
+      const [caption, setCaption] = useState<string>("");
+      const[isOpen,setisOpen]=useState(false)
+      const dispatch=useAppDispatch()
+    console.log(overlay)
+
+
+    const changeLayData=()=>{
+       dispatch(setLaydata(""));
+      
+    }
+
+
+
+    useEffect(() => {
+        try {
+          const userString = localStorage.getItem("user");
+          if (userString) {
+            const user = JSON.parse(userString);
+              setUsername(user.username || "");
+            setPhone(user.phone || "");
+            setUserId(user.id || "");
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+        if(overlay==="addpost"){
+          setisOpen(true)
+
+        }
+        else{
+          setisOpen(false)
+        }
+
+
+
+      }, [overlay]);
+    
+
+  
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,8 +136,8 @@ const Index = () => {
           </div>
         </div>
          <AddPostModal      
-         isOpen={true} 
-        onClose={() => setIsModalOpen(false)}   />
+         isOpen={isOpen} 
+        onClose={changeLayData}   />
       </main>
     </div>
   );

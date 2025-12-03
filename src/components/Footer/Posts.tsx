@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Share, Bookmark, MoreHorizontal, Clock, RefreshCw, ImageIcon, Trophy, Flame, TrendingUp, Users, Target, Coins, Zap, Award, MessageSquare, TrendingDown } from "lucide-react";
+import { Heart, MessageCircle, Share, Bookmark, MoreHorizontal, Clock, RefreshCw, Trophy, Zap } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,6 @@ const Posts = () => {
   const [error, setError] = useState<string>("");
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
-  const [activeFilter, setActiveFilter] = useState<'all' | 'wins' | 'hot'>('all');
 
   useEffect(() => {
     fetchPosts();
@@ -172,7 +171,7 @@ const Posts = () => {
   const getOutcomeIcon = (outcome: string) => {
     switch(outcome) {
       case 'win': return <Trophy className="h-3 w-3" />;
-      case 'loss': return <TrendingDown className="h-3 w-3" />;
+      case 'loss': return '▼';
       default: return <Clock className="h-3 w-3" />;
     }
   };
@@ -192,7 +191,7 @@ const Posts = () => {
       },
       {
         id: '2',
-        image_url: '', // Text-only post
+        image_url: '',
         caption: 'Live betting on NBA playoffs! 🏀 Taking Lakers ML @ 2.10 odds. Lebron going for 40+ tonight! #NBA #livebetting #basketball #sportsbook',
         user_name: 'Sarah Sportsfan',
         user_id: 'user456',
@@ -212,39 +211,6 @@ const Posts = () => {
         bet_outcome: 'loss',
         odds: '4.50'
       },
-      {
-        id: '4',
-        image_url: '', // Another text-only post
-        caption: '🔥 HOT TIP: Chelsea vs Arsenal - Over 2.5 goals @ 1.80 Both teams scoring like crazy lately! #premierleague #football #bettips #soccer',
-        user_name: 'Emma Analyst',
-        user_id: 'user101',
-        created_at: Math.floor(Date.now() / 1000) - 12 * 60 * 60,
-        bet_amount: 200,
-        bet_outcome: 'pending',
-        odds: '1.80'
-      },
-      {
-        id: '5',
-        image_url: 'https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=800&h=600&fit=crop',
-        caption: 'My betting strategy for March Madness! 🏀 Going with underdog picks and live betting. Who else is ready for the tournament? #marchmadness #collegebasketball #bettingstrategy',
-        user_name: 'Chris Gambler',
-        user_id: 'user102',
-        created_at: Math.floor(Date.now() / 1000) - 1 * 60 * 60,
-        bet_amount: 150,
-        bet_outcome: 'win',
-        odds: '5.25'
-      },
-      {
-        id: '6',
-        image_url: 'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?w=800&h=600&fit=crop',
-        caption: 'Parlay hit! 🎯 4-leg accumulator came through with ₿425 profit! Feeling unstoppable right now! #parlay #accumulator #winning #betting',
-        user_name: 'Jordan Winner',
-        user_id: 'user103',
-        created_at: Math.floor(Date.now() / 1000) - 3 * 60 * 60,
-        bet_amount: 50,
-        bet_outcome: 'win',
-        odds: '9.50'
-      },
     ];
     
     const cleanedPosts = mockPosts.map(post => ({
@@ -257,23 +223,14 @@ const Posts = () => {
     setLoading(false);
   };
 
-  const filteredPosts = posts.filter(post => {
-    if (activeFilter === 'wins') return post.bet_outcome === 'win';
-    if (activeFilter === 'hot') {
-      const likes = Math.floor(Math.random() * 100) + 50;
-      return likes > 80 || post.bet_outcome === 'win';
-    }
-    return true;
-  });
-
   if (loading) {
     return (
-      <div className="h-screen bg-background overflow-y-auto">
-        <div className="max-w-2xl mx-auto">
-          {[...Array(4)].map((_, i) => (
+      <div className="bg-background overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-2">
+          {[...Array(3)].map((_, i) => (
             <div key={i} className="bg-card border-b border-border animate-pulse">
-              <div className="p-4">
-                <div className="flex items-center gap-3">
+              <div className="p-3">
+                <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-primary/10 rounded-full"></div>
                   <div className="space-y-1 flex-1">
                     <div className="w-20 h-3 bg-primary/10 rounded"></div>
@@ -281,9 +238,9 @@ const Posts = () => {
                   </div>
                 </div>
               </div>
-              <div className="w-full h-80 bg-primary/5"></div>
-              <div className="p-4 space-y-3">
-                <div className="flex gap-3">
+              <div className="w-full h-64 bg-primary/5"></div>
+              <div className="p-3 space-y-2">
+                <div className="flex gap-2">
                   <div className="w-6 h-6 bg-primary/10 rounded"></div>
                   <div className="w-6 h-6 bg-primary/10 rounded"></div>
                   <div className="w-6 h-6 bg-primary/10 rounded"></div>
@@ -300,26 +257,26 @@ const Posts = () => {
 
   if (error) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
+      <div className="bg-background flex items-center justify-center p-4">
         <div className="text-center max-w-sm w-full">
-          <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/30">
-              <Trophy className="h-10 w-10 text-destructive" />
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/30">
+              <Trophy className="h-8 w-8 text-destructive" />
             </div>
-            <h3 className="text-foreground font-bold text-lg mb-2">Connection Failed</h3>
-            <p className="text-muted-foreground mb-6 text-sm">Unable to load betting posts</p>
-            <div className="space-y-3">
+            <h3 className="text-foreground font-bold text-sm mb-1">Connection Failed</h3>
+            <p className="text-muted-foreground mb-4 text-xs">Unable to load betting posts</p>
+            <div className="space-y-2">
               <Button
                 onClick={fetchPosts}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-sm py-1.5"
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-3 w-3 mr-1" />
                 Retry Connection
               </Button>
               <Button
                 variant="outline"
                 onClick={useMockData}
-                className="w-full border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                className="w-full border-border text-muted-foreground hover:text-foreground hover:bg-secondary text-sm py-1.5"
               >
                 Load Demo Posts
               </Button>
@@ -331,23 +288,10 @@ const Posts = () => {
   }
 
   return (
-    <div className="h-screen bg-background overflow-y-auto">
-      {/* Header Stats */}
-      <div className="max-w-2xl mx-auto pt-4 px-4">
-       
-
-        {/* Filter Tabs */}
-       
-            
-         
-        {/* Community Stats */}
-       
-      </div>
-       
-
-      <div className="max-w-2xl mx-auto">
+    <div className="bg-background overflow-y-auto">
+      <div className="max-w-2xl mx-auto px-2">
         <div className="space-y-0">
-          {filteredPosts.map((post) => (
+          {posts.map((post) => (
             <BettingPostCard
               key={post.id}
               post={post}
@@ -363,17 +307,17 @@ const Posts = () => {
           ))}
         </div>
 
-        {filteredPosts.length === 0 && (
-          <div className="bg-card border-b border-border p-10">
+        {posts.length === 0 && (
+          <div className="bg-card border border-border p-6 rounded-lg">
             <div className="text-center">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10">
-                <MessageSquare className="h-12 w-12 text-primary" />
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary/5 flex items-center justify-center border border-primary/10">
+                <Zap className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-foreground font-bold text-lg mb-2">No betting posts yet</h3>
-              <p className="text-muted-foreground mb-6 text-sm">Be the first to share a betting tip or win!</p>
+              <h3 className="text-foreground font-bold text-sm mb-1">No betting posts yet</h3>
+              <p className="text-muted-foreground mb-4 text-xs">Be the first to share a betting tip or win!</p>
               <Button
                 onClick={useMockData}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm py-1.5"
               >
                 Load Demo Posts
               </Button>
@@ -381,13 +325,13 @@ const Posts = () => {
           </div>
         )}
 
-        {filteredPosts.length > 0 && (
-          <div className="bg-card border-t border-border p-4 sticky bottom-0">
+        {posts.length > 0 && (
+          <div className="bg-card border-t border-border p-3 sticky bottom-0">
             <Button
               onClick={fetchPosts}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-sm py-1.5"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-3 w-3 mr-1" />
               Load New Posts
             </Button>
           </div>
@@ -407,7 +351,7 @@ interface BettingPostCardProps {
   formatTimeAgo: (timestamp: number) => string;
   getInitials: (name: string) => string;
   getOutcomeColor: (outcome: string) => string;
-  getOutcomeIcon: (outcome: string) => JSX.Element;
+  getOutcomeIcon: (outcome: string) => JSX.Element | string;
 }
 
 const BettingPostCard: React.FC<BettingPostCardProps> = ({
@@ -425,24 +369,8 @@ const BettingPostCard: React.FC<BettingPostCardProps> = ({
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
 
-  const shouldTruncate = post.caption && post.caption.length > 120;
-  const hasValidImage = hasValidImageUrl(post.image_url);
-  const isTextOnly = !hasValidImage;
-
-  function hasValidImageUrl(imageUrl: string): boolean {
-    if (!imageUrl || imageUrl.trim() === '') return false;
-    
-    const invalidValues = ['null', 'undefined', 'nan', 'none', 'false', 'true'];
-    if (invalidValues.includes(imageUrl.toLowerCase())) return false;
-    
-    if (imageUrl.includes('placeholder') || 
-        imageUrl.includes('default') || 
-        imageUrl.includes('missing')) {
-      return false;
-    }
-    
-    return true;
-  }
+  const shouldTruncate = post.caption && post.caption.length > 100;
+  const hasValidImage = post.image_url && post.image_url.trim() !== '';
 
   const handleImageLoad = () => {
     setImageLoaded(true);
@@ -454,60 +382,77 @@ const BettingPostCard: React.FC<BettingPostCardProps> = ({
     setImageLoaded(true);
   };
 
-  const calculatePotentialWin = () => {
-    if (post.bet_amount && post.odds) {
-      return (post.bet_amount * parseFloat(post.odds)).toFixed(2);
-    }
-    return '0.00';
-  };
-
   return (
-    <div className="bg-card border-b border-border glass-card-hover p-4 mb-4">
-      {/* Header */}
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10 border border-border">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
-                {getInitials(post.user_name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-bold text-foreground text-sm">
-                  {post.user_name}
-                </h3>
-                <Badge className={`px-2 py-0.5 rounded-full text-xs font-medium border flex items-center gap-1 ${getOutcomeColor(post.bet_outcome || 'pending')}`}>
-                  {getOutcomeIcon(post.bet_outcome || 'pending')}
-                  {post.bet_outcome?.toUpperCase() || 'PENDING'}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Clock className="h-3 w-3" />
+    <div className="bg-card border-b border-border p-3">
+      {/* Header - Made more compact */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Avatar className="w-8 h-8">
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+              {getInitials(post.user_name)}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="flex items-center gap-1">
+              <h3 className="font-bold text-foreground text-sm">
+                {post.user_name}
+              </h3>
+              <Badge className={`px-1.5 py-0.5 rounded-full text-xs font-medium border ${getOutcomeColor(post.bet_outcome || 'pending')}`}>
+                <span className="text-xs">{getOutcomeIcon(post.bet_outcome || 'pending')}</span>
+              </Badge>
+              <span className="text-muted-foreground text-xs ml-1">•</span>
+              <div className="flex items-center gap-0.5 text-muted-foreground">
+                <Clock className="h-2.5 w-2.5" />
                 <span className="text-xs">
                   {formatTimeAgo(post.created_at)}
                 </span>
               </div>
             </div>
           </div>
-          <button className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors hover:bg-secondary">
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
         </div>
+        <button className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors hover:bg-secondary">
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Bet Info Banner */}
-      
-           
+      {/* Bet Info - Compact inline */}
+      {post.bet_amount && (
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+          <span className="font-medium text-foreground">₿{post.bet_amount}</span>
+          <span>•</span>
+          <span>@{post.odds}</span>
+          <span>•</span>
+          <span>Pot: ₿{(post.bet_amount * parseFloat(post.odds || '1')).toFixed(2)}</span>
+        </div>
+      )}
 
-      {/* Image Section */}
+      {/* Caption - Twitter-like typography */}
+      {post.caption && (
+        <div className="mb-2">
+          <p className="text-foreground text-sm leading-relaxed">
+            {shouldTruncate && !showFullCaption 
+              ? `${post.caption.slice(0, 100)}...`
+              : post.caption
+            }
+            {shouldTruncate && (
+              <button
+                onClick={() => setShowFullCaption(!showFullCaption)}
+                className="ml-1 text-primary hover:text-primary/80 font-medium text-sm"
+              >
+                {showFullCaption ? 'Show less' : 'Show more'}
+              </button>
+            )}
+          </p>
+        </div>
+      )}
+
+      {/* Image Section - Reduced height */}
       {hasValidImage && !imageError && (
-        <div className="relative bg-primary/5">
+        <div className="relative mb-2 rounded-lg overflow-hidden bg-secondary">
           {!imageLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-secondary">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-10 h-10 border-2 border-border border-t-primary rounded-full animate-spin"></div>
-                <p className="text-muted-foreground text-xs">Loading image...</p>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-6 h-6 border-2 border-border border-t-primary rounded-full animate-spin"></div>
               </div>
             </div>
           )}
@@ -515,126 +460,83 @@ const BettingPostCard: React.FC<BettingPostCardProps> = ({
           <img
             src={post.image_url}
             alt={post.caption || `Betting post by ${post.user_name}`}
-            className={`w-full object-cover transition-all duration-500 ${
-              imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+            className={`w-full object-cover transition-opacity duration-300 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             style={{ 
-              maxHeight: '70vh',
-              minHeight: '400px'
+              maxHeight: '400px',
+              minHeight: '200px'
             }}
             onLoad={handleImageLoad}
             onError={handleImageError}
             loading="lazy"
-            crossOrigin="anonymous"
           />
         </div>
       )}
 
-      {/* Content */}
-      <div className="p-4">
-        {/* Text-only post indicator */}
-        {isTextOnly && (
-          <div className="flex items-center gap-2 text-primary mb-3">
-            <Zap className="h-4 w-4" />
-            <span className="text-xs font-bold">BETTING TIP</span>
-          </div>
-        )}
-
-        {/* Caption */}
-        {post.caption && (
-          <div className="mb-4">
-            <p className="text-foreground text-sm leading-relaxed">
-              <span className="font-bold text-foreground">{post.user_name}</span>{' '}
-              {shouldTruncate && !showFullCaption 
-                ? `${post.caption.slice(0, 120)}...`
-                : post.caption
-              }
-              {shouldTruncate && (
-                <button
-                  onClick={() => setShowFullCaption(!showFullCaption)}
-                  className="ml-2 text-primary hover:text-primary/80 font-bold text-sm transition-colors"
-                >
-                  {showFullCaption ? 'Show less' : 'Show more'}
-                </button>
-              )}
-            </p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => onLike(post.id)}
-                className={cn(
-                  "p-1.5 transition-all duration-200 rounded-full",
-                  isLiked 
-                    ? 'text-destructive scale-110 bg-destructive/10' 
-                    : 'text-muted-foreground hover:text-destructive hover:bg-secondary'
-                )}
-              >
-                <Heart className={cn("h-5 w-5", isLiked && "fill-current")} />
-              </button>
-              <button className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-secondary rounded-full transition-all">
-                <MessageCircle className="h-5 w-5" />
-              </button>
-              <button className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-secondary rounded-full transition-all">
-                <Share className="h-5 w-5" />
-              </button>
-            </div>
+      {/* Actions - More compact like Twitter */}
+      <div className="mb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => onSave(post.id)}
+              onClick={() => onLike(post.id)}
               className={cn(
-                "p-1.5 transition-all duration-200 rounded-full",
-                isSaved 
-                  ? 'text-primary scale-110 bg-primary/10' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                "p-1 transition-all duration-200 rounded-full",
+                isLiked 
+                  ? 'text-destructive scale-105' 
+                  : 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
               )}
             >
-              <Bookmark className={cn("h-5 w-5", isSaved && "fill-current")} />
+              <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
+            </button>
+            <button className="text-muted-foreground hover:text-primary p-1 hover:bg-primary/10 rounded-full transition-all">
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            <button className="text-muted-foreground hover:text-primary p-1 hover:bg-primary/10 rounded-full transition-all">
+              <Share className="h-4 w-4" />
             </button>
           </div>
-        </div>
-
-        {/* Engagement Stats */}
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <p className="font-bold text-foreground text-sm">
-              {Math.floor(Math.random() * 150) + 50} likes
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 text-muted-foreground text-xs">
-              <MessageCircle className="h-3 w-3" />
-              <span>{Math.floor(Math.random() * 25)}</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground text-xs">
-              <Share className="h-3 w-3" />
-              <span>{Math.floor(Math.random() * 15)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Comments */}
-        <div className="text-muted-foreground text-sm mb-3">
-          <button className="hover:text-primary transition-colors font-medium">
-            View all {Math.floor(Math.random() * 25)} comments
+          <button
+            onClick={() => onSave(post.id)}
+            className={cn(
+              "p-1 transition-all duration-200 rounded-full",
+              isSaved 
+                ? 'text-primary scale-105' 
+                : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+            )}
+          >
+            <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />
           </button>
         </div>
+      </div>
 
-        {/* Add Comment */}
-        <div className="pt-3 border-t border-border">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Add a betting tip or comment..."
-              className="flex-1 text-sm text-foreground bg-background border border-input rounded-lg px-3 py-2 outline-none placeholder-muted-foreground focus:border-primary transition-colors"
-            />
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm px-4 py-2 rounded-lg">
-              Post
-            </Button>
-          </div>
+      {/* Engagement Stats - Smaller */}
+      <div className="flex items-center justify-between mb-2 text-xs">
+        <div>
+          <span className="text-muted-foreground">
+            {Math.floor(Math.random() * 150) + 50} likes
+          </span>
+          <span className="text-muted-foreground mx-1">•</span>
+          <span className="text-muted-foreground">
+            {Math.floor(Math.random() * 25)} comments
+          </span>
+        </div>
+        <div className="text-muted-foreground">
+          {Math.floor(Math.random() * 15)} shares
+        </div>
+      </div>
+
+      {/* Comment Input - Twitter style */}
+      <div className="pt-2 border-t border-border">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Post your reply..."
+            className="flex-1 text-xs text-foreground bg-background border border-input rounded-full px-3 py-1.5 outline-none placeholder-muted-foreground focus:border-primary transition-colors"
+          />
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs px-3 py-1.5 rounded-full">
+            Reply
+          </Button>
         </div>
       </div>
     </div>

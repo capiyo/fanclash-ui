@@ -6,10 +6,16 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/use-theme";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { Provider } from "react-redux";
+import { store } from "./components/ReduxPages/store";
+import { Context } from './components/ContextProvider/Context';
+
 
 const queryClient = new QueryClient();
 
 const App = () => (
+  <Provider store={store}>
+    <Context>
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
@@ -25,6 +31,8 @@ const App = () => (
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
+  </Context>
+  </Provider>
 );
 
 export default App;

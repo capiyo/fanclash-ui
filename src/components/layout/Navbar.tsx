@@ -6,6 +6,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState } from "react";
 import { PenSquare, FileEdit, PencilLine, SquarePen } from "lucide-react";
 import AddPostModal from "../Footer/AddPostalModal";
+import { useAppDispatch } from '../ReduxPages/store';
+import { setLaydata } from "../ReduxPages/slices/overlaySlice";
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -15,12 +17,14 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [openPost,setpost]=useState("")
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const dispatch=useAppDispatch()
   
 
   const handlePost=()=>{
     setpost("addpost")
     console.log("hellooo")
     setIsModalOpen(true)
+     dispatch(setLaydata("addpost"));
   }
 
   return (
