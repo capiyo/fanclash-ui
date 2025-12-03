@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState } from "react";
+import { PenSquare, FileEdit, PencilLine, SquarePen } from "lucide-react";
+import AddPostModal from "../Footer/AddPostalModal";
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -11,6 +13,15 @@ interface NavbarProps {
 
 export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [openPost,setpost]=useState("")
+    const [isModalOpen, setIsModalOpen] = useState(false);
+  
+
+  const handlePost=()=>{
+    setpost("addpost")
+    console.log("hellooo")
+    setIsModalOpen(true)
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-background/90 backdrop-blur-xl border-b border-border/30">
@@ -37,11 +48,8 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
         {/* Center - Search */}
         <div className="hidden md:flex flex-1 max-w-md mx-8">
           <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search fixtures, users, bets..."
-              className="pl-10 bg-secondary/50 border-border/50 focus:border-primary/50 placeholder:text-muted-foreground"
-            />
+            <PenSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+           
           </div>
         </div>
 
@@ -51,9 +59,9 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             variant="ghost"
             size="icon"
             className="md:hidden text-muted-foreground hover:text-foreground"
-            onClick={() => setSearchOpen(!searchOpen)}
+           onClick={handlePost}
           >
-            <Search className="h-5 w-5" />
+            <PenSquare className="h-5 w-5" />
           </Button>
 
           <ThemeToggle />
@@ -85,17 +93,16 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           </Button>
         </div>
       </div>
+      
+     
+      
 
       {/* Mobile search */}
       {searchOpen && (
         <div className="md:hidden px-4 pb-3 animate-fade-in">
           <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search..."
-              className="pl-10 bg-secondary/50 border-border/50"
-              autoFocus
-            />
+            <PenSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+           
           </div>
         </div>
       )}

@@ -9,10 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Posts from "@/components/Footer/Posts";
 import PledgeCard from "@/components/Footer/PledgeCard";
 import Fixtures from "@/components/Footer/Fixtures";
+import AddPostModal from "@/components/Footer/AddPostalModal";
 
 
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -84,6 +86,9 @@ const Index = () => {
             </section>
           </div>
         </div>
+         <AddPostModal      
+         isOpen={true} 
+        onClose={() => setIsModalOpen(false)}   />
       </main>
     </div>
   );
