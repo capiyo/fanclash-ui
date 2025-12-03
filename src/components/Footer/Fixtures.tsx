@@ -1,14 +1,11 @@
-
 import { 
-  MapPin, Clock, DollarSign, Building2, ThumbsUp, Eye, MessageSquare, 
-  Heart, Share2, Zap, TrendingUp, Calendar, Trophy, Users, Sparkles, Target, 
-  UserPlus, Flame, Crown, Star, ShieldCheck, Swords, AlertCircle, 
-  Coins, Award, Wallet, TrendingDown, Users2, Bell, CheckCircle, XCircle, 
-  BarChart3, Lock, Unlock, Gavel, Scale, Percent, Timer 
+  MapPin, Clock, DollarSign, Building2, Heart, MessageCircle, 
+  Share2, Zap, Users, Calendar, Trophy, Sparkles, UserPlus, 
+  Eye, TrendingUp, Wallet, Bell, Target, Crown, ShieldCheck,
+  Coins, Award, BarChart3, Lock, Gavel, Percent, Timer 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -22,22 +19,24 @@ interface FixtureProps {
   away_win: string;
   home_win: string;
   league: string;
+  _id?: string;
 }
 
-interface BetData {
-  amount: number;
-  away_team: string;
-  home_team: string;
-  selection: string;
-  fan: string;
+interface PledgeData {
   username: string;
   phone: string;
+  selection: string;
+  amount: number;
+  fan: string;
+  home_team: string;
+  away_team: string;
+  starter_id: string; // This is already included
 }
 
 const Fixtures = () => {
   const [myId, setMyId] = useState("");
   const [myName, setMyname] = useState("");
-  const [workerEmail, setWorkerEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [fixtures, setFixtures] = useState<FixtureProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,7 +45,6 @@ const Fixtures = () => {
 
   const { toast } = useToast();
 
-  // Team avatar images
   const teamAvatars = {
     team1: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=100&h=100&fit=crop",
     team2: "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=100&h=100&fit=crop",
@@ -56,7 +54,6 @@ const Fixtures = () => {
     user3: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop"
   };
 
-  // Mock users for betting activity
   const mockBettors = [
     { name: "Alex", avatar: teamAvatars.user1, bet: "₿50", team: "HOME", won: true },
     { name: "Sarah", avatar: teamAvatars.user2, bet: "₿120", team: "AWAY", won: false },
@@ -69,9 +66,9 @@ const Fixtures = () => {
       try {
         const user = JSON.parse(token);
         if (user) {
-          setMyId(user._id);
-          setMyname(user.userName);
-          setWorkerEmail(user.userEmail);
+          setMyId(user.id || user._id || "");
+          setMyname(user.username || user.userName || "");
+          setPhone(user.phone || "");
         }
       } catch (err) {
         console.error("Error parsing user token:", err);
@@ -103,21 +100,14 @@ const Fixtures = () => {
 
   async function fetchFixtures(): Promise<FixtureProps[]> {
     try {
-      console.log("Fetching matches from:", API_BASE_URL);
       const response = await fetch(API_BASE_URL, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       
-      const data: FixtureProps[] = await response.json();
-      console.log("Matches data received:", data);
-      return data;
+      return await response.json();
     } catch (error) {
       console.error("Failed to fetch matches:", error);
       throw error;
@@ -125,119 +115,151 @@ const Fixtures = () => {
   }
 
   return (
-    <div className="h-screen bg-background overflow-y-auto">
-      {/* Header with User Balance - Same structure as your Posts component */}
-      <div className="max-w-2xl mx-auto pt-4 px-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 p-6 bg-card rounded-xl shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Wallet className="w-6 h-6 text-primary" />
+    <div className="min-h-screen bg-[#0A0A0A] text-white font-sans">
+      {/* Twitter Header with Green Accents */}
+      
+      
+
+      {/* Main Feed */}
+      <div className="max-w-2xl mx-auto">
+        {/* Post New Bet Card */}
+        <div className="border-b border-gray-800 border-opacity-50 p-4 bg-gray-900/20 backdrop-blur-sm">
+          <div className="flex space-x-4">
+            <Avatar className="w-12 h-12 border border-gray-800 ring-1 ring-gray-700/50">
+              <AvatarImage src={teamAvatars.user1} />
+              <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800">
+                You
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <textarea 
+                placeholder="What's your betting analysis? #SportsBetting" 
+                className="w-full bg-transparent text-sm placeholder-gray-600 focus:outline-none resize-none mb-4"
+                rows={2}
+              />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4 text-gray-500">
+                  <Button variant="ghost" size="sm" className="hover:text-emerald-500 hover:bg-gray-800/50 rounded-full p-2">
+                    <Calendar className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="hover:text-emerald-500 hover:bg-gray-800/50 rounded-full p-2">
+                    <DollarSign className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="hover:text-emerald-500 hover:bg-gray-800/50 rounded-full p-2">
+                    <MapPin className="w-4 h-4" />
+                  </Button>
+                </div>
+                <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6 font-bold shadow-lg shadow-emerald-500/20">
+                  Post Bet
+                </Button>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Your Balance</p>
-              <p className="text-2xl font-bold text-foreground">₿{userBalance.toFixed(2)}</p>
-            </div>
-          </div>
-          
-          <div className="flex gap-3">
-            <Badge className="bg-primary/10 text-primary px-4 py-2">
-              <Zap className="w-3 h-3 mr-2" />
-              Live Bets: {fixtures.length}
-            </Badge>
-            <Badge className="bg-secondary text-muted-foreground px-4 py-2">
-              <Users className="w-3 h-3 mr-2" />
-              Active: 1.2K
-            </Badge>
           </div>
         </div>
-      </div>
 
-      {/* Main Cards Container - Same structure as your Posts component */}
-      <div className="max-w-2xl mx-auto">
-        <div className="space-y-4">
-          {fixtures.map((fixture, key) => (
-            <div key={key} className="w-full">
-              <MatchCard fixture={fixture} teamAvatars={teamAvatars} mockBettors={mockBettors} />
+        {/* Fixtures Feed */}
+        <div className="divide-y divide-gray-800/50">
+          {fixtures.map((fixture, index) => (
+            <div key={index} className="hover:bg-gray-900/30 transition-colors duration-200">
+              <MatchCard 
+                fixture={fixture} 
+                teamAvatars={teamAvatars} 
+                mockBettors={mockBettors}
+                userData={{ id: myId, name: myName, phone: phone }}
+              />
             </div>
           ))}
         </div>
 
-        {/* Error State */}
-        {error && (
-          <div className="bg-card border-b border-border p-8">
-            <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
-                <TrendingDown className="w-10 h-10 text-destructive" />
-              </div>
-              <h3 className="text-destructive text-lg font-bold mb-2">Connection Failed</h3>
-              <p className="text-muted-foreground mb-6">{error}</p>
-              <div className="flex gap-3 justify-center">
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-                >
-                  <Zap className="w-4 h-4 mr-2" />
-                  Retry Connection
-                </Button>
-                <Button
-                  variant="outline"
-                  className="text-muted-foreground hover:text-foreground hover:bg-secondary"
-                >
-                  <Bell className="w-4 h-4 mr-2" />
-                  Notify Me
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Loading State */}
         {loading && (
-          <div className="bg-card border-b border-border p-10">
-            <div className="text-center">
-              <div className="relative mb-6">
-                <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                <div className="absolute inset-0 w-20 h-20 border-2 border-primary/10 rounded-full animate-ping"></div>
-              </div>
-              <p className="text-primary text-lg font-bold mb-3">Loading live odds...</p>
-              <p className="text-muted-foreground text-sm">Fetching best betting opportunities</p>
-            </div>
+          <div className="p-12 text-center border-b border-gray-800/50">
+            <div className="inline-block animate-spin rounded-full h-14 w-14 border-4 border-gray-800 border-t-emerald-500"></div>
+            <p className="mt-4 text-gray-500">Loading live odds...</p>
+            <p className="text-sm text-gray-600 mt-2">Fetching the best betting opportunities</p>
           </div>
         )}
 
-        {/* Empty State */}
-        {!loading && fixtures.length === 0 && !error && (
-          <div className="bg-card border-b border-border p-10">
-            <div className="text-center">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/5 flex items-center justify-center">
-                <Trophy className="w-12 h-12 text-primary" />
-              </div>
-              <p className="text-foreground text-xl font-bold mb-3">No matches available</p>
-              <p className="text-muted-foreground text-sm mb-6">New betting opportunities coming soon</p>
-              <div className="mt-6 flex justify-center space-x-2">
-                <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
-                <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-              </div>
+        {/* Error State */}
+        {error && (
+          <div className="p-8 text-center border-b border-gray-800/50">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
+              <Zap className="w-8 h-8 text-red-500" />
             </div>
+            <h3 className="text-red-500 font-bold mb-2">Connection Failed</h3>
+            <p className="text-gray-500 mb-6">{error}</p>
+            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6 shadow-lg shadow-emerald-500/20">
+              Retry Connection
+            </Button>
           </div>
         )}
+      </div>
+
+      {/* Bottom Navigation - Twitter style with green */}
+      <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-sm border-t border-gray-800/50">
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          <div className="flex justify-around items-center">
+            <Button variant="ghost" className="text-gray-400 hover:text-emerald-500 group">
+              <div className="text-center">
+                <div className="w-8 h-8 mx-auto mb-1 rounded-full flex items-center justify-center group-hover:bg-emerald-500/10">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <span className="text-xs">For You</span>
+              </div>
+            </Button>
+            
+            <Button variant="ghost" className="text-gray-400 hover:text-emerald-500 group">
+              <div className="text-center">
+                <div className="w-8 h-8 mx-auto mb-1 rounded-full flex items-center justify-center group-hover:bg-emerald-500/10">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <span className="text-xs">Trending</span>
+              </div>
+            </Button>
+            
+            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-14 h-14 shadow-xl shadow-emerald-500/30 relative -top-4">
+              <Zap className="w-6 h-6" />
+            </Button>
+            
+            <Button variant="ghost" className="text-gray-400 hover:text-emerald-500 group">
+              <div className="text-center">
+                <div className="w-8 h-8 mx-auto mb-1 rounded-full flex items-center justify-center group-hover:bg-emerald-500/10">
+                  <Users className="w-5 h-5" />
+                </div>
+                <span className="text-xs">Community</span>
+              </div>
+            </Button>
+            
+            <Button variant="ghost" className="text-gray-400 hover:text-emerald-500 group">
+              <div className="text-center">
+                <div className="w-8 h-8 mx-auto mb-1 rounded-full flex items-center justify-center group-hover:bg-emerald-500/10">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <span className="text-xs">Wallet</span>
+              </div>
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProps; teamAvatars: any; mockBettors: any[] }) {
-  const [isHovered, setIsHovered] = useState(false);
+interface MatchCardProps {
+  fixture: FixtureProps;
+  teamAvatars: any;
+  mockBettors: any[];
+  userData: { id: string; name: string; phone: string };
+}
+
+function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardProps) {
   const [selectedBet, setSelectedBet] = useState("");
   const [betAmount, setBetAmount] = useState("");
   const [isLiked, setIsLiked] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 100) + 50);
   const [commentCount, setCommentCount] = useState(Math.floor(Math.random() * 30) + 10);
-  const [followerCount, setFollowerCount] = useState(Math.floor(Math.random() * 500) + 200);
   const { toast } = useToast();
-  const local_BASE_URL = 'https://fanclash-api.onrender.com';
 
   const handleBetPlacement = async () => {
     if (!selectedBet || !betAmount) {
@@ -249,57 +271,94 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
       return;
     }
 
-    const selectedTeam = selectedBet === "homeTeam" ? fixture.home_team : 
-                        selectedBet === "awayTeam" ? fixture.away_team : "Draw";
-    
-    // Simulate bet placement
-    toast({
-      title: "🎯 BET CONFIRMED! 🎯",
-      description: `₿${betAmount} on ${selectedTeam} @ ${getSelectedOdds()} odds`,
-      className: "bg-primary text-primary-foreground"
-    });
-    
-    // Reset form
-    setBetAmount("");
-    setSelectedBet("");
-  };
+    try {
+      if (!userData.id || !userData.name) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login first",
+          variant: "destructive"
+        });
+        return;
+      }
 
-  const handleTeamSelect = (option: string) => {
-    setSelectedBet(option);
-  };
+      // Map frontend selection to backend format
+      let selection: string;
+      switch (selectedBet) {
+        case "homeTeam":
+          selection = "home_team";
+          break;
+        case "awayTeam":
+          selection = "away_team";
+          break;
+        case "draw":
+          selection = "draw";
+          break;
+        default:
+          selection = "draw";
+      }
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
-    toast({
-      title: isLiked ? "💔 Removed from favorites" : "❤️ Added to favorites!",
-      variant: "default"
-    });
-  };
+      // Prepare pledge data - INCLUDING STARTER_ID
+      const pledgeData: PledgeData = {
+        username: userData.name,
+        phone: userData.phone,
+        selection: selection,
+        amount: parseFloat(betAmount),
+        fan: "user",
+        home_team: fixture.home_team,
+        away_team: fixture.away_team,
+        starter_id: userData.id, // This is already included in your interface
+      };
 
-  const handleComment = () => {
-    toast({
-      title: "💬 Opening betting discussion...",
-      variant: "default"
-    });
-  };
+      console.log("📤 Sending bet to API:", pledgeData);
 
-  const handleFollow = () => {
-    setIsFollowing(!isFollowing);
-    setFollowerCount(prev => isFollowing ? prev - 1 : prev + 1);
-    toast({
-      title: isFollowing ? "👋 Unfollowed match" : "✅ Tracking this match!",
-      variant: "default"
-    });
+      const response = await fetch(`https://fanclash-api.onrender.com/api/pledges`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pledgeData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("✅ Bet placed successfully:", result);
+
+      const selectedTeam = selectedBet === "homeTeam" ? fixture.home_team : 
+                          selectedBet === "awayTeam" ? fixture.away_team : "Draw";
+      
+      toast({
+        title: "🎯 Bet Placed!",
+        description: `₿${betAmount} on ${selectedTeam}`,
+        className: "bg-emerald-500/20 border-emerald-500 text-emerald-500"
+      });
+      
+      setBetAmount("");
+      setSelectedBet("");
+    } catch (error) {
+      console.error("❌ Error placing bet:", error);
+      toast({
+        title: "Bet Failed",
+        description: error instanceof Error ? error.message : "Unable to place bet",
+        variant: "destructive"
+      });
+    }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return "Time TBD";
+    }
   };
 
   const getTeamAvatar = (teamName: string) => {
@@ -307,372 +366,255 @@ function MatchCard({ fixture, teamAvatars, mockBettors }: { fixture: FixtureProp
     return teams[teamName.length % teams.length];
   };
 
-  const getSelectedOdds = () => {
-    switch (selectedBet) {
-      case "homeTeam":
-        return fixture.home_win;
-      case "awayTeam":
-        return fixture.away_win;
-      case "draw":
-        return fixture.draw;
-      default:
-        return "0.00";
-    }
-  };
-
-  const calculatePayout = () => {
-    if (!betAmount || !selectedBet) return "0.00";
-    const odds = parseFloat(getSelectedOdds());
-    const stake = parseFloat(betAmount);
-    return (stake * odds).toFixed(2);
-  };
-
-  const getRiskColor = (odds: string) => {
-    const oddNum = parseFloat(odds);
-    if (oddNum < 2.0) return "text-primary";
-    if (oddNum < 4.0) return "text-warning";
-    return "text-destructive";
-  };
-
   return (
-    <div
-      className="relative group cursor-pointer w-full"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className={cn(
-        "relative transition-all duration-300 w-full",
-        isHovered ? "scale-[1.02]" : "scale-100"
-      )}>
-        {isHovered && (
-          <div className="absolute inset-0 bg-primary/5 rounded-xl blur-xl -z-10"></div>
-        )}
-        
-        {/* Main Betting Card - Using div instead of Card for better width control */}
-        <div className="relative bg-card backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all duration-300 w-full min-h-[420px] h-auto border-b border-border">
-          {/* Top Status Bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-primary/50 rounded-t-xl"></div>
-          
-          <div className="pb-2 pt-6 px-6">
-            <div className="flex items-center justify-between mb-3">
-              <Badge className="bg-primary/10 text-primary text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
-                <Crown className="w-3 h-3 text-primary" />
-                {fixture.league.toUpperCase()}
-                <div className="w-1 h-1 bg-primary rounded-full animate-pulse ml-1"></div>
-              </Badge>
-              <div className="flex items-center gap-2 text-muted-foreground text-xs bg-secondary px-3 py-1.5 rounded-full">
-                <Calendar className="w-3 h-3 text-primary" />
-                <span>{formatDate(fixture.date)}</span>
+    <div className="border-b border-gray-800/50 p-4 hover:bg-gray-900/30 transition-colors duration-200">
+      {/* Card Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start space-x-3">
+          <Avatar className="w-10 h-10 border border-gray-800 ring-1 ring-gray-700/50">
+            <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800">
+              <Trophy className="w-4 h-4 text-emerald-500" />
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <span className="text-emerald-400 text-sm font-bold">{fixture.league}</span>
+              <span className="text-gray-600 text-sm">·</span>
+              <span className="text-gray-500 text-sm">{formatDate(fixture.date)}</span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
+              <span>Live Match</span>
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              <span className="text-gray-600">·</span>
+              <span className="text-emerald-400 text-xs">Odds Boost Active</span>
+            </div>
+          </div>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="text-gray-400 hover:text-emerald-500 hover:bg-gray-800/50 rounded-full p-2"
+        >
+          <Share2 className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* Teams & Odds */}
+      <div className="ml-13 mb-4">
+        <div className="flex items-center justify-between mb-6">
+          {/* Home Team */}
+          <div className="text-center flex-1">
+            <div className="flex items-center justify-center space-x-3 mb-3">
+              <Avatar className="w-14 h-14 border border-gray-700 ring-1 ring-gray-600/30">
+                <AvatarImage src={getTeamAvatar(fixture.home_team)} />
+                <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800 font-bold">
+                  {fixture.home_team.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-left">
+                <p className="text-sm font-bold">{fixture.home_team}</p>
+                <div className="flex items-center space-x-2 text-sm text-gray-400">
+                  <span>Home</span>
+                  <span className="text-gray-600">·</span>
+                  <span className="text-emerald-400 font-bold">{fixture.home_win}</span>
+                </div>
               </div>
             </div>
+            <Button
+              variant={selectedBet === "homeTeam" ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "w-full rounded-full font-bold transition-all duration-200",
+                selectedBet === "homeTeam" 
+                  ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/20" 
+                  : "border-gray-700 hover:border-emerald-500 text-gray-400 hover:text-emerald-500 bg-gray-900/50"
+              )}
+              onClick={() => setSelectedBet("homeTeam")}
+            >
+              Bet Home
+            </Button>
+          </div>
 
-            {/* Teams & Odds Section */}
-            <div className="text-center">
-              <div className="flex items-center justify-between mb-4">
-                {/* Home Team */}
-                <div 
-                  className="text-center flex-1 cursor-pointer transition-all duration-300 group/team"
-                  onClick={() => handleTeamSelect("homeTeam")}
-                >
-                  <div className={cn(
-                    "relative p-4 rounded-2xl transition-all duration-300",
-                    selectedBet === "homeTeam" 
-                      ? "bg-primary/10" 
-                      : "hover:bg-secondary group-hover/team:scale-105"
-                  )}>
-                    <div className="relative">
-                      <Avatar className={cn(
-                        "w-16 h-16 mx-auto mb-3 transition-all duration-300 shadow-sm",
-                        selectedBet === "homeTeam" 
-                          ? "bg-primary/5" 
-                          : "bg-secondary group-hover/team:border-primary/30"
-                      )}>
-                        <AvatarImage src={getTeamAvatar(fixture.home_team)} />
-                        <AvatarFallback className="bg-secondary text-foreground text-base font-bold">
-                          {fixture.home_team.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      {selectedBet === "homeTeam" && (
-                        <div className="absolute -top-2 -right-2">
-                          <div className="w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-sm ring-2 ring-background">
-                            <ShieldCheck className="w-3 h-3 text-primary-foreground" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <p className={cn(
-                      "text-sm truncate leading-tight transition-colors duration-300 font-bold mb-1",
-                      selectedBet === "homeTeam" ? "text-foreground" : "text-foreground"
-                    )}>
-                      {fixture.home_team}
-                    </p>
-                    <p className={cn(
-                      "text-xl transition-colors duration-300 font-bold",
-                      selectedBet === "homeTeam" ? "text-primary" : getRiskColor(fixture.home_win)
-                    )}>
-                      {fixture.home_win}
-                    </p>
-                  </div>
-                </div>
-
-                {/* VS & Draw */}
-                <div className="flex flex-col items-center mx-4">
-                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center shadow-sm mb-3">
-                    <span className="text-primary text-sm font-bold">VS</span>
-                  </div>
-                  <div 
-                    className={cn(
-                      "cursor-pointer transition-all duration-300 rounded-xl px-4 py-3 min-w-[80px] font-bold",
-                      selectedBet === "draw" 
-                        ? "bg-primary text-primary-foreground scale-105" 
-                        : "bg-secondary text-muted-foreground hover:text-foreground hover:scale-105 shadow-sm"
-                    )}
-                    onClick={() => handleTeamSelect("draw")}
-                  >
-                    <p className="text-xs mb-1">DRAW</p>
-                    <p className={cn("text-sm", getRiskColor(fixture.draw))}>{fixture.draw}</p>
-                  </div>
-                </div>
-
-                {/* Away Team */}
-                <div 
-                  className="text-center flex-1 cursor-pointer transition-all duration-300 group/team"
-                  onClick={() => handleTeamSelect("awayTeam")}
-                >
-                  <div className={cn(
-                    "relative p-4 rounded-2xl transition-all duration-300",
-                    selectedBet === "awayTeam" 
-                      ? "bg-primary/10" 
-                      : "hover:bg-secondary group-hover/team:scale-105"
-                  )}>
-                    <div className="relative">
-                      <Avatar className={cn(
-                        "w-16 h-16 mx-auto mb-3 transition-all duration-300 shadow-sm",
-                        selectedBet === "awayTeam" 
-                          ? "bg-primary/5" 
-                          : "bg-secondary group-hover/team:border-primary/30"
-                      )}>
-                        <AvatarImage src={getTeamAvatar(fixture.away_team)} />
-                        <AvatarFallback className="bg-secondary text-foreground text-base font-bold">
-                          {fixture.away_team.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      {selectedBet === "awayTeam" && (
-                        <div className="absolute -top-2 -right-2">
-                          <div className="w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-sm ring-2 ring-background">
-                            <ShieldCheck className="w-3 h-3 text-primary-foreground" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <p className={cn(
-                      "text-sm truncate leading-tight transition-colors duration-300 font-bold mb-1",
-                      selectedBet === "awayTeam" ? "text-foreground" : "text-foreground"
-                    )}>
-                      {fixture.away_team}
-                    </p>
-                    <p className={cn(
-                      "text-xl transition-colors duration-300 font-bold",
-                      selectedBet === "awayTeam" ? "text-primary" : getRiskColor(fixture.away_win)
-                    )}>
-                      {fixture.away_win}
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <div className="px-6">
+            <div className="bg-gray-900 rounded-full px-4 py-2 border border-gray-800">
+              <span className="font-bold text-gray-300 text-sm">VS</span>
             </div>
           </div>
 
-          <div className="space-y-4 pb-5 px-6">
-            {/* Selection Badge */}
-            {selectedBet && (
-              <div className="flex justify-center">
-                <div className="bg-primary text-primary-foreground rounded-full px-5 py-2.5 flex items-center gap-2 shadow-sm">
-                  <Sparkles className="w-4 h-4" />
-                  <p className="text-sm font-bold">
-                    {selectedBet === "homeTeam" 
-                      ? `${fixture.home_team.substring(0, 12)}` 
-                      : selectedBet === "awayTeam" 
-                      ? `${fixture.away_team.substring(0, 12)}` 
-                      : "DRAW"}
-                  </p>
-                  <div className="w-1 h-1 bg-primary-foreground/50 rounded-full"></div>
-                  <p className="text-sm font-bold">{getSelectedOdds()} ODDS</p>
+          {/* Away Team */}
+          <div className="text-center flex-1">
+            <div className="flex items-center justify-center space-x-3 mb-3">
+              <div className="text-right">
+                <p className="text-sm font-bold">{fixture.away_team}</p>
+                <div className="flex items-center justify-end space-x-2 text-sm text-gray-400">
+                  <span className="text-emerald-400 font-bold">{fixture.away_win}</span>
+                  <span className="text-gray-600">·</span>
+                  <span>Away</span>
                 </div>
               </div>
-            )}
-
-            {/* Bet Amount Input */}
-            {selectedBet && (
-              <div className="space-y-3 animate-in fade-in duration-300">
-                <label className="text-foreground text-sm font-bold flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-primary" />
-                  ENTER STAKE (₿)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={betAmount}
-                    onChange={(e) => setBetAmount(e.target.value)}
-                    placeholder="Enter amount..."
-                    className="flex-1 bg-background rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-base"
-                  />
-                  <Button
-                    onClick={() => setBetAmount("")}
-                    variant="outline"
-                    size="sm"
-                    className="h-12 px-4 text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  >
-                    Clear
-                  </Button>
-                </div>
-                
-                {/* Quick Stake Buttons */}
-                <div className="flex gap-2">
-                  {["10", "50", "100", "500"].map((quickAmount) => (
-                    <Button
-                      key={quickAmount}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setBetAmount(quickAmount)}
-                      className="flex-1 text-sm h-9 bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 shadow-sm transition-all duration-200"
-                    >
-                      ₿{quickAmount}
-                    </Button>
-                  ))}
-                </div>
-
-                {/* Potential Win Calculation */}
-                {betAmount && (
-                  <div className="bg-primary/5 rounded-lg p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-primary text-xs font-bold mb-1">POTENTIAL WIN</p>
-                        <p className="text-foreground text-2xl font-bold">₿{calculatePayout()}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-muted-foreground text-xs">Stake: ₿{betAmount}</p>
-                        <p className="text-primary text-xs">Odds: {getSelectedOdds()}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Target className="w-3 h-3 text-primary" />
-                      <p className="text-primary text-xs">Risk: {parseFloat(getSelectedOdds()) < 2.0 ? "LOW" : parseFloat(getSelectedOdds()) < 4.0 ? "MEDIUM" : "HIGH"}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Recent Bettors */}
-            <div className="flex justify-between items-center bg-secondary rounded-xl p-3">
-              <div className="flex -space-x-3">
-                {mockBettors.map((bettor, index) => (
-                  <div key={index} className="relative">
-                    <Avatar className="w-9 h-9 border-2 border-background shadow-sm">
-                      <AvatarImage src={bettor.avatar} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                        {bettor.name[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    {bettor.won && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-success rounded-full border border-background"></div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <span className="text-xs text-muted-foreground font-medium">
-                +{mockBettors.length} bets placed
-              </span>
+              <Avatar className="w-14 h-14 border border-gray-700 ring-1 ring-gray-600/30">
+                <AvatarImage src={getTeamAvatar(fixture.away_team)} />
+                <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800 font-bold">
+                  {fixture.away_team.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
             </div>
+            <Button
+              variant={selectedBet === "awayTeam" ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "w-full rounded-full font-bold transition-all duration-200",
+                selectedBet === "awayTeam" 
+                  ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/20" 
+                  : "border-gray-700 hover:border-emerald-500 text-gray-400 hover:text-emerald-500 bg-gray-900/50"
+              )}
+              onClick={() => setSelectedBet("awayTeam")}
+            >
+              Bet Away
+            </Button>
+          </div>
+        </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-center gap-4 pt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLike}
-                className={`flex items-center space-x-2 transition-all duration-300 h-9 px-4 rounded-lg shadow-sm ${
-                  isLiked 
-                    ? "bg-destructive/10 text-destructive" 
-                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-                }`}
-              >
-                <Heart 
-                  className={`h-4 w-4 transition-all duration-300 ${
-                    isLiked ? "fill-destructive text-destructive" : ""
-                  }`} 
+        {/* Draw Option */}
+        <div className="mb-6">
+          <Button
+            variant={selectedBet === "draw" ? "default" : "outline"}
+            size="sm"
+            className={cn(
+              "w-full rounded-full font-bold transition-all duration-200",
+              selectedBet === "draw" 
+                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20" 
+                : "border-gray-700 hover:border-emerald-500 text-gray-400 hover:text-emerald-500 bg-gray-900/50"
+            )}
+            onClick={() => setSelectedBet("draw")}
+          >
+            <span className="mr-2">Bet Draw</span>
+            <span className="text-emerald-400 font-bold">{fixture.draw}</span>
+          </Button>
+        </div>
+
+        {/* Bet Amount Input */}
+        {selectedBet && (
+          <div className="mb-6 animate-in fade-in duration-300">
+            <div className="flex items-center space-x-3">
+              <div className="flex-1">
+                <input
+                  type="number"
+                  value={betAmount}
+                  onChange={(e) => setBetAmount(e.target.value)}
+                  placeholder="Enter stake amount..."
+                  className="w-full bg-gray-900 border border-gray-800 rounded-full px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
                 />
-                <span className="text-xs font-bold">{likeCount}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleComment}
-                className="flex items-center space-x-2 bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all duration-300 h-9 px-4 rounded-lg shadow-sm"
-              >
-                <MessageSquare className="h-4 w-4" />
-                <span className="text-xs font-bold">{commentCount}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleFollow}
-                className={`flex items-center space-x-2 transition-all duration-300 h-9 px-4 rounded-lg shadow-sm ${
-                  isFollowing
-                    ? "bg-primary/10 text-primary"
-                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-                }`}
-              >
-                <UserPlus className="h-4 w-4" />
-                <span className="text-xs font-bold">{followerCount}</span>
-              </Button>
-            </div>
-
-            {/* Place Bet Button */}
-            <div className="pt-2">
+              </div>
               <Button
                 onClick={handleBetPlacement}
-                className={cn(
-                  "w-full transition-all duration-300 text-sm h-12 shadow-sm hover:shadow-md font-bold relative overflow-hidden group",
-                  selectedBet && betAmount
-                    ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
-                    : selectedBet
-                    ? "bg-primary/10 text-primary hover:bg-primary/20"
-                    : "bg-secondary text-muted-foreground hover:text-foreground cursor-not-allowed"
-                )}
-                disabled={!selectedBet || !betAmount}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6 font-bold shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
+                disabled={!betAmount}
               >
-                <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors duration-300" />
-                <Zap className="w-5 h-5 mr-2" />
-                {!selectedBet ? "SELECT BET" : !betAmount ? "ENTER STAKE" : `PLACE BET - ₿${betAmount}`}
+                Place Bet
               </Button>
             </div>
-
-            {/* Match Stats */}
-            <div className="flex justify-center gap-6 pt-2">
-              <div className="text-center">
-                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg">
-                  <Eye className="w-4 h-4" />
-                  <span className="text-xs font-bold">2.1K</span>
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg">
-                  <Share2 className="w-4 h-4" />
-                  <span className="text-xs font-bold">Share Bet</span>
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-secondary px-3 py-2 rounded-lg">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-xs font-bold">Stats</span>
-                </div>
-              </div>
+            
+            {/* Quick Stake Buttons */}
+            <div className="flex space-x-2 mt-3">
+              {["10", "50", "100", "500"].map((amount) => (
+                <Button
+                  key={amount}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBetAmount(amount)}
+                  className="flex-1 rounded-full border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500 text-xs py-2 bg-gray-900/50"
+                >
+                  ₿{amount}
+                </Button>
+              ))}
             </div>
           </div>
+        )}
+
+        {/* Recent Bettors */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2">
+            <div className="flex -space-x-2">
+              {mockBettors.slice(0, 3).map((bettor, index) => (
+                <Avatar key={index} className="w-8 h-8 border-2 border-gray-900 ring-1 ring-gray-800">
+                  <AvatarImage src={bettor.avatar} />
+                  <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800 text-xs">
+                    {bettor.name[0]}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            </div>
+            <span className="text-sm text-gray-400">
+              +{mockBettors.length} bets placed
+            </span>
+          </div>
+          <div className="flex items-center space-x-4 text-gray-400">
+            <div className="flex items-center space-x-1">
+              <Eye className="w-4 h-4" />
+              <span className="text-sm">2.1K</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Target className="w-4 h-4 text-emerald-500" />
+              <span className="text-sm text-emerald-400">Live</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons - Twitter Style */}
+        <div className="flex items-center justify-between border-t border-gray-800/50 pt-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setIsLiked(!isLiked);
+              setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+            }}
+            className={cn(
+              "flex items-center space-x-2 text-gray-400 hover:text-pink-500 group rounded-full px-3",
+              isLiked && "text-pink-500"
+            )}
+          >
+            <Heart className={cn(
+              "w-5 h-5 transition-all duration-200 group-hover:scale-110",
+              isLiked && "fill-pink-500"
+            )} />
+            <span className="text-sm">{likeCount}</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCommentCount(prev => prev + 1)}
+            className="flex items-center space-x-2 text-gray-400 hover:text-emerald-500 group rounded-full px-3"
+          >
+            <MessageCircle className="w-5 h-5 transition-all duration-200 group-hover:scale-110" />
+            <span className="text-sm">{commentCount}</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsFollowing(!isFollowing)}
+            className={cn(
+              "flex items-center space-x-2 rounded-full px-3 transition-all duration-200",
+              isFollowing 
+                ? "text-emerald-500" 
+                : "text-gray-400 hover:text-emerald-500"
+            )}
+          >
+            <UserPlus className="w-5 h-5 group-hover:scale-110" />
+            <span className="text-sm">{isFollowing ? "Following" : "Follow"}</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex items-center space-x-2 text-gray-400 hover:text-emerald-500 group rounded-full px-3"
+          >
+            <Share2 className="w-5 h-5 transition-all duration-200 group-hover:scale-110" />
+            <span className="text-sm">Share</span>
+          </Button>
         </div>
       </div>
     </div>
