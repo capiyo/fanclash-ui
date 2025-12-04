@@ -40,6 +40,7 @@ const AddPostModal = ({ isOpen, onClose, onPostCreated }: AddPostModalProps) => 
           setUsername(user.username || "");
         setPhone(user.phone || "");
         setUserId(user.id || "");
+        console.log(username,phone)
       }
     } catch (error) {
       console.error("Error parsing user data:", error);

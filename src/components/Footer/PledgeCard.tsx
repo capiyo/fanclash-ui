@@ -17,10 +17,11 @@ interface PledgeData {
   home_team: string;
   selection: string;
   fan: string;
+  starter_id:string;
   username: string;
   phone: string;
   time: string;
-  _id?: string;
+  _id?: string | any;
   created_at?: string;
   odds?: {
     home_win?: string;
@@ -33,12 +34,11 @@ interface PledgeData {
   sport_type?: string;
 }
 
-interface BetAgainstData {
-  amount: number;
-  against_selection: string;
-  against_amount: number;
-  against_username: string;
-  pledge_id: string;
+interface AcceptBetData {
+  finisher_id: string;
+  finisher_username: string;
+  finisher_team: string;
+  finisher_amount: number;
 }
 
 const PledgeCard = () => {
@@ -49,7 +49,7 @@ const PledgeCard = () => {
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState<'all' | 'available' | 'matched'>('all');
   const [userBalance, setUserBalance] = useState(1250.75);
-  const API_BASE_URL = 'https://fanclash-api.onrender.com/api/pledges';
+  const API_BASE_URL = 'http://localhost:3000/api/pledges';
 
   const { toast } = useToast();
 
@@ -57,23 +57,24 @@ const PledgeCard = () => {
     team1: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=100&h=100&fit=crop",
     team2: "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=100&h=100&fit=crop",
     team3: "https://images.unsplash.com/photo-1516466723877-e4ec1d736c8a?w=100&h=100&fit=crop",
-    user1: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+    user1: "https://images.unsplash.com/phone-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
     user2: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop",
     user3: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop"
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("user");
-    if (token) {
-      try {
-        const user = JSON.parse(token);
-        if (user) {
-          setMyId(user._id);
-          setMyname(user.userName);
-        }
-      } catch (err) {
-        console.error("Error parsing user token:", err);
+    // Load user info from localStorage
+    try {
+      const userString = localStorage.getItem("user");
+      if (userString) {
+        const user = JSON.parse(userString);
+        // Use user.id (not user._id) - match what AddPost uses
+        setMyId(user.id || "");
+        setMyname(user.username || "");
+        console.log("✅ User loaded - ID:", user.id, "Name:", user.username);
       }
+    } catch (error) {
+      console.error("Error parsing user data:", error);
     }
   }, []);
 
@@ -137,17 +138,50 @@ const PledgeCard = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white font-sans">
-      {/* X Header - Twitter-inspired with green accents */}
-     
-
-      {/* Stats Bar */}
-     
+      {/* Filter Buttons */}
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="flex space-x-2 mb-6">
+          <Button
+            variant={activeFilter === 'all' ? "default" : "outline"}
+            onClick={() => setActiveFilter('all')}
+            className={cn(
+              "rounded-full",
+              activeFilter === 'all' 
+                ? "bg-emerald-500 text-white border-emerald-500" 
+                : "border-gray-800 text-gray-400"
+            )}
+          >
+            All Bets
+          </Button>
+          <Button
+            variant={activeFilter === 'available' ? "default" : "outline"}
+            onClick={() => setActiveFilter('available')}
+            className={cn(
+              "rounded-full",
+              activeFilter === 'available' 
+                ? "bg-emerald-500 text-white border-emerald-500" 
+                : "border-gray-800 text-gray-400"
+            )}
+          >
+            Available
+          </Button>
+          <Button
+            variant={activeFilter === 'matched' ? "default" : "outline"}
+            onClick={() => setActiveFilter('matched')}
+            className={cn(
+              "rounded-full",
+              activeFilter === 'matched' 
+                ? "bg-emerald-500 text-white border-emerald-500" 
+                : "border-gray-800 text-gray-400"
+            )}
+          >
+            Matched
+          </Button>
+        </div>
+      </div>
 
       {/* Main Feed */}
       <div className="max-w-2xl mx-auto">
-        {/* Compose Tweet-like Bet */}
-        
-
         {/* P2P Bets Feed */}
         <div className="divide-y divide-gray-800/50">
           {filteredPledges.map((pledge, index) => (
@@ -155,6 +189,7 @@ const PledgeCard = () => {
               <P2PBettingCard 
                 pledge={pledge} 
                 teamAvatars={teamAvatars} 
+                currentUserId={myId}
               />
             </div>
           ))}
@@ -177,7 +212,10 @@ const PledgeCard = () => {
             </div>
             <h3 className="text-red-500 font-bold mb-2">Connection Failed</h3>
             <p className="text-gray-500 mb-6">{error}</p>
-            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6 shadow-lg shadow-emerald-500/20">
+            <Button 
+              className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6 shadow-lg shadow-emerald-500/20"
+              onClick={() => window.location.reload()}
+            >
               Retry Connection
             </Button>
           </div>
@@ -198,15 +236,11 @@ const PledgeCard = () => {
           </div>
         )}
       </div>
-
-      {/* Bottom Navigation - Twitter style with green */}
-    
-      </div>
-    
+    </div>
   );
 };
 
-function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvatars: any }) {
+function P2PBettingCard({ pledge, teamAvatars, currentUserId }: { pledge: PledgeData; teamAvatars: any; currentUserId: string }) {
   const [betAgainstAmount, setBetAgainstAmount] = useState("");
   const [betAgainstOption, setBetAgainstOption] = useState("");
   const [isBetting, setIsBetting] = useState(false);
@@ -215,18 +249,45 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
   const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 50) + 20);
   const [commentCount, setCommentCount] = useState(Math.floor(Math.random() * 20) + 5);
   const { toast } = useToast();
+  const[username,setUsername]=useState("")
+  const[userId,setUserId]=useState("")
+  const[phone,setPhone]=useState("")
+  
+  // Check if current user is the starter
+  const isCurrentUserStarter = currentUserId === pledge.starter_id;
   
   const existingSelection = pledge.selection;
+
+
+    useEffect(() => {
+      try {
+        const userString = localStorage.getItem("user");
+        if (userString) {
+          const user = JSON.parse(userString);
+            setUsername(user.username || "");
+          setPhone(user.phone || "");
+          setUserId(user.id || "");
+          console.log(username,phone)
+        }
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }, []);
+  
+
+
+
+
   
   const getOppositeOptions = () => {
     const options = [];
-    if (existingSelection !== "homeTeam") options.push({ 
-      value: "homeTeam", 
+    if (existingSelection !== "home_team") options.push({ 
+      value: "home_team", 
       label: `${pledge.home_team} Win`, 
       odds: pledge.odds?.home_win || "2.00" 
     });
-    if (existingSelection !== "awayTeam") options.push({ 
-      value: "awayTeam", 
+    if (existingSelection !== "away_team") options.push({ 
+      value: "away_team", 
       label: `${pledge.away_team} Win`, 
       odds: pledge.odds?.away_win || "2.00" 
     });
@@ -239,52 +300,126 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
   };
 
   const oppositeOptions = getOppositeOptions();
+const sendBetAgainst = async () => {
+  if (!betAgainstAmount || !betAgainstOption) {
+    toast({
+      title: "Incomplete Bet",
+      description: "Select your prediction and enter stake",
+      variant: "destructive"
+    });
+    return;
+  }
 
-  const sendBetAgainst = async () => {
-    if (!betAgainstAmount || !betAgainstOption) {
+  // Get user info from localStorage
+  const token = localStorage.getItem("user");
+  if (!token) {
+    toast({
+      title: "Authentication Required",
+      description: "Please login to place a bet",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  try {
+    const user = JSON.parse(token);
+    
+    // Use user.id (match what AddPost uses)
+    const user_id = user.id;
+    const user_name = user.username || "User";
+
+    if (!user_id) {
       toast({
-        title: "Incomplete Bet",
-        description: "Select your prediction and enter stake",
+        title: "User Info Missing",
+        description: "Please complete your profile",
         variant: "destructive"
       });
       return;
     }
 
-    const betData: BetAgainstData = {
-      amount: Number(betAgainstAmount),
-      against_selection: betAgainstOption,
-      against_amount: Number(betAgainstAmount),
-      against_username: "Current User",
-      pledge_id: pledge._id || ""
+    // Determine the team based on selection
+    let finisherTeam = "";
+    if (pledge.selection === "home_team") {
+      finisherTeam = pledge.away_team;
+    } else if (pledge.selection === "away_team") {
+      finisherTeam = pledge.home_team;
+    } else if (betAgainstOption === "draw") {
+      finisherTeam = "draw";
+    }
+
+    // ⚠️ IMPORTANT: You're creating a NEW bet, not accepting an existing one
+    // You need to send the COMPLETE bet data with starter info from pledge
+    const createBetData = {
+      // Starter info (from the pledge creator)
+      starter_id: pledge.starter_id,  // This comes from pledge data
+      starter_username: pledge.username,  // From pledge
+      starter_team: pledge.selection === "home_team" ? pledge.home_team : 
+                    pledge.selection === "away_team" ? pledge.away_team : "draw",
+      starter_amount: pledge.amount,
+      
+      // Finisher info (current user accepting the bet)
+      finisher_id: userId,
+      finisher_username: username,
+      finisher_team: finisherTeam,
+      finisher_amount: Number(betAgainstAmount),
+      
+      // Match details from pledge
+      home_team: pledge.home_team,
+      away_team: pledge.away_team,
+      sport_type: pledge.sport_type || "football", // Default if not specified
+      
+      // Optional field
+      expires_in_hours: 24
     };
 
-    try {
-      const response = await fetch(`https://fanclash-api.onrender.com/api/pledges/bet-against`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(betData),
-      });
+    console.log("Creating new bet with data:", createBetData);
 
-      if (!response.ok) throw new Error("Bet placement failed");
+    const response = await fetch(`http://localhost:3000/api/bets`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(createBetData),
+    });
 
-      toast({
-        title: "⚔️ Bet Accepted!",
-        description: `You're betting ₿${betAgainstAmount} against ${pledge.username}`,
-        className: "bg-emerald-500/20 border-emerald-500 text-emerald-500"
-      });
-      
-      setBetAgainstAmount("");
-      setBetAgainstOption("");
-      setIsBetting(false);
-      
-    } catch (error) {
-      toast({
-        title: "Bet Failed",
-        description: "Unable to place counter bet",
-        variant: "destructive"
-      });
+    console.log("Response status:", response.status);
+    
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorText = await response.text();
+        errorMessage = errorText ? `${errorMessage}: ${errorText}` : errorMessage;
+      } catch (e) {
+        // Couldn't read error text
+      }
+      throw new Error(errorMessage);
     }
-  };
+
+    const result = await response.json();
+    console.log("Success response:", result);
+
+    toast({
+      title: "⚔️ Bet Created Successfully!",
+      description: `You've created a new bet against ${pledge.username}`,
+      className: "bg-emerald-500/20 border-emerald-500 text-emerald-500"
+    });
+    
+    setBetAgainstAmount("");
+    setBetAgainstOption("");
+    setIsBetting(false);
+    
+    // Optionally refresh the pledges list
+    // fetchPledges();
+    
+  } catch (error: any) {
+    console.error("Bet creation error:", error);
+    toast({
+      title: "Bet Creation Failed",
+      description: error.message || "Unable to create bet",
+      variant: "destructive"
+    });
+  }
+};
 
   const formatDate = (dateString: string) => {
     try {
@@ -300,7 +435,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
   };
 
   return (
-    <div className=" p-2 transition-colors duration-200">
+    <div className="p-2 transition-colors duration-200">
       {/* Header with User Info */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start space-x-3">
@@ -311,7 +446,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
-              <span className=" text-sm hover:underline cursor-pointer">{pledge.username}</span>
+              <span className="text-sm hover:underline cursor-pointer">{pledge.username}</span>
               <CheckCircle className="w-4 h-4 text-emerald-500" />
               <span className="text-gray-500 text-sm">·</span>
               <span className="text-gray-500 text-sm">{formatDate(pledge.created_at || "")}</span>
@@ -348,7 +483,9 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
 
       {/* Match Info */}
       <div className="ml-13 mb-4">
-        <div className="flex items-center justify-between  backdrop-blur-sm rounded-xl p-4 mb-4 border border-gray-800/50">
+        <div className="flex items-center justify-between backdrop-blur-sm rounded-xl p-4 mb-4 border border-gray-800/50">
+          
+          {/* Home Team */}
           <div className="text-center">
             <Avatar className="w-14 h-14 border border-gray-700 mx-auto mb-2 ring-1 ring-gray-600/30">
               <AvatarImage src={teamAvatars.team1} />
@@ -356,21 +493,23 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 {pledge.home_team.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            {pledge.selection==="home_team"?
-            <div>
-            <p className="text-sm text-sm  text-red-400">{pledge.home_team}</p>
-          
-            <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
-              <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
-            </div>:
-            <div>
-            <p className="text-sm text-sm  ">{pledge.home_team}</p>
-            <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
-                          </div>
-            }
-           
+            
+            {/* Home Team Selection Logic */}
+            {pledge.selection === "home_team" ? (
+              <div>
+                <p className="text-sm text-red-400">{pledge.home_team}</p>
+                <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
+                <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm">{pledge.home_team}</p>
+                <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
+              </div>
+            )}
           </div>
           
+          {/* VS Section */}
           <div className="text-center px-4">
             <div className="bg-gray-900 rounded-full p-2 mb-2 border border-gray-800">
               <Swords className="w-6 h-6 text-emerald-500 mx-auto" />
@@ -386,33 +525,34 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
             </div>
           </div>
           
+          {/* Away Team */}
           <div className="text-center">
             <Avatar className="w-14 h-14 border border-gray-700 mx-auto mb-2 ring-1 ring-gray-600/30">
               <AvatarImage src={teamAvatars.team2} />
-              <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800 ">
+              <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800">
                 {pledge.away_team.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-             {pledge.selection==="away_team"?
-            <div>
-            <p className="text-sm text-sm  text-red-400">{pledge.away_team}</p>
-          
-            <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
-              <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
-            </div>:
-            <div>
-            <p className="text-sm text-sm  ">{pledge.away_team}</p>
-            <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
-                          </div>
-            }
-           
+            
+            {/* Away Team Selection Logic */}
+            {pledge.selection === "away_team" ? (
+              <div>
+                <p className="text-sm text-red-400">{pledge.away_team}</p>
+                <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
+                <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm">{pledge.away_team}</p>
+                <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
+              </div>
+            )}
           </div>
-          </div>
-        
+        </div>
 
         {/* Bet Details */}
         <div className="mb-4">
-          <div className="flex items-center justify-between  rounded-lg p-3 mb-3 border border-gray-800/50">
+          <div className="flex items-center justify-between rounded-lg p-3 mb-3 border border-gray-800/50">
             <div className="flex items-center space-x-3">
               <div className="bg-emerald-500/10 p-2 rounded-lg">
                 <Coins className="w-4 h-4 text-emerald-500" />
@@ -424,102 +564,122 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
             </div>
             <div className="text-right">
               <p className="text-gray-500 text-xs">pot size</p>
-              <p className="text-emerald-400 ">ksh. {(pledge.potential_payout || 0).toFixed(2)}</p>
+              <p className="text-emerald-400">ksh. {(pledge.potential_payout || 0).toFixed(2)}</p>
             </div>
           </div>
-          
-          {/* Current Bet */}
-          
         </div>
 
-        {/* Accept Bet Button */}
-        {!isBetting ? (
-          <Button
-            onClick={() => setIsBetting(true)}
-            className="w-full bg-emerald-500/10 text-white rounded-full font-bold py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
-          >
-            <Swords className="w-5 h-5 mr-2" />
-            accept bet
-          </Button>
+        {/* ✅ Hide Accept Bet button if current user is the starter */}
+        {!isCurrentUserStarter && pledge.status === 'active' ? (
+          <>
+            {!isBetting ? (
+              <Button
+                onClick={() => setIsBetting(true)}
+                className="w-full bg-emerald-500/10 text-white rounded-full font-bold py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors"
+              >
+                <Swords className="w-5 h-5 mr-2" />
+                Accept Bet
+              </Button>
+            ) : (
+              <div className="space-y-4 animate-in fade-in duration-300">
+                {/* Prediction Selection */}
+                <div>
+                  <p className="text-white mb-3 text-sm">SELECT YOUR PREDICTION</p>
+                  <div className="space-y-2">
+                    {oppositeOptions.map((option) => (
+                      <Button
+                        key={option.value}
+                        variant={betAgainstOption === option.value ? "default" : "outline"}
+                        onClick={() => setBetAgainstOption(option.value)}
+                        className={cn(
+                          "w-full justify-between rounded-full px-4 py-3",
+                          betAgainstOption === option.value
+                            ? "bg-emerald-500 text-white border-emerald-500"
+                            : "border-gray-800 text-gray-300 hover:text-white hover:border-emerald-500 bg-gray-900/50"
+                        )}
+                      >
+                        <span className="text-sm font-medium">{option.label}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-emerald-400 text-sm font-bold">{option.odds} odds</span>
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stake Input */}
+                <div>
+                  <p className="text-white font-bold mb-3 text-sm">ENTER YOUR STAKE (₿)</p>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      value={betAgainstAmount}
+                      onChange={(e) => setBetAgainstAmount(e.target.value)}
+                      placeholder="Enter amount..."
+                      className="flex-1 bg-gray-900 border border-gray-800 rounded-full px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                    />
+                    <Button
+                      onClick={() => setBetAgainstAmount(pledge.amount.toString())}
+                      className="bg-gray-800 hover:bg-gray-700 text-white rounded-full border border-gray-700"
+                    >
+                      Match
+                    </Button>
+                  </div>
+                  
+                  {/* Quick Stake Buttons */}
+                  <div className="flex space-x-2 mt-3">
+                    {["100", "500", "1000", pledge.amount.toString()].map((amount) => (
+                      <Button
+                        key={amount}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBetAgainstAmount(amount)}
+                        className="flex-1 rounded-full border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500 text-xs py-2 bg-gray-900/50"
+                      >
+                        ₿{amount}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3 pt-2">
+                  <Button
+                    onClick={sendBetAgainst}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
+                    disabled={!betAgainstOption || !betAgainstAmount}
+                  >
+                    <ShieldCheck className="w-5 h-5 mr-2" />
+                    PLACE BET
+                  </Button>
+                  <Button
+                    onClick={() => setIsBetting(false)}
+                    className="border-gray-800 text-gray-400 hover:text-white hover:border-gray-700 rounded-full bg-gray-900/50"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="space-y-4 animate-in fade-in duration-300">
-            {/* Prediction Selection */}
-            <div>
-              <p className="text-white font-bold mb-3 text-sm">SELECT YOUR PREDICTION</p>
-              <div className="space-y-2">
-                {oppositeOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={betAgainstOption === option.value ? "default" : "outline"}
-                    onClick={() => setBetAgainstOption(option.value)}
-                    className={cn(
-                      "w-full justify-between rounded-full px-4 py-3",
-                      betAgainstOption === option.value
-                        ? "bg-emerald-500 text-white border-emerald-500"
-                        : "border-gray-800 text-gray-300 hover:text-white hover:border-emerald-500 bg-gray-900/50"
-                    )}
-                  >
-                    <span className="text-sm font-medium">{option.label}</span>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-emerald-400 text-sm font-bold">{option.odds} odds</span>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Stake Input */}
-            <div>
-              <p className="text-white font-bold mb-3 text-sm">ENTER YOUR STAKE (₿)</p>
-              <div className="flex space-x-2">
-                <input
-                  type="number"
-                  value={betAgainstAmount}
-                  onChange={(e) => setBetAgainstAmount(e.target.value)}
-                  placeholder="Enter amount..."
-                  className="flex-1 bg-gray-900 border border-gray-800 rounded-full px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
-                />
-                <Button
-                  onClick={() => setBetAgainstAmount(pledge.amount.toString())}
-                  className="bg-gray-800 hover:bg-gray-700 text-white rounded-full border border-gray-700"
-                >
-                  Match
-                </Button>
-              </div>
-              
-              {/* Quick Stake Buttons */}
-              <div className="flex space-x-2 mt-3">
-                {["100", "500", "1000", pledge.amount.toString()].map((amount) => (
-                  <Button
-                    key={amount}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setBetAgainstAmount(amount)}
-                    className="flex-1 rounded-full border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500 text-xs py-2 bg-gray-900/50"
-                  >
-                    ₿{amount}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-3 pt-2">
-              <Button
-                onClick={sendBetAgainst}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-bold py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
-                disabled={!betAgainstOption || !betAgainstAmount}
-              >
-                <ShieldCheck className="w-5 h-5 mr-2" />
-                PLACE BET
-              </Button>
-              <Button
-                onClick={() => setIsBetting(false)}
-                className="border-gray-800 text-gray-400 hover:text-white hover:border-gray-700 rounded-full bg-gray-900/50"
-              >
-                Cancel
-              </Button>
+          // Show message if user is the starter or bet is not active
+          <div className="text-center p-4 border border-gray-800/50 rounded-lg">
+            <div className="flex items-center justify-center space-x-2 text-gray-400">
+              {isCurrentUserStarter ? (
+                <>
+                  <Eye className="w-5 h-5" />
+                  <span className="text-sm">This is your bet - waiting for challengers</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-5 h-5" />
+                  <span className="text-sm">
+                    {pledge.status === 'matched' ? 'Bet already matched' : 'Bet not available'}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         )}
