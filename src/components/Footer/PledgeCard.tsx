@@ -300,7 +300,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
   };
 
   return (
-    <div className="border-b border-gray-800/50 p-4 hover:bg-gray-900/30 transition-colors duration-200">
+    <div className=" p-2 transition-colors duration-200">
       {/* Header with User Info */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start space-x-3">
@@ -318,7 +318,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
             </div>
             <div className="flex items-center space-x-3 mt-1">
               <span className="text-emerald-400 text-xs bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                {pledge.sport_type?.toUpperCase()}
+               futa
               </span>
               <span className="text-gray-600 text-xs">·</span>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -356,8 +356,18 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 {pledge.home_team.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <p className="text-sm text-sm">{pledge.home_team}</p>
+            {pledge.selection==="home_team"?
+            <div>
+            <p className="text-sm text-sm  text-red-400">{pledge.home_team}</p>
+          
+            <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
+              <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
+            </div>:
+            <div>
+            <p className="text-sm text-sm  ">{pledge.home_team}</p>
             <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
+                          </div>
+            }
            
           </div>
           
@@ -371,7 +381,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 <span>{formatDate(pledge.match_time || "")}</span>
               </div>
               <div className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-full">
-                P2P CHALLENGE
+                challenge this battle
               </div>
             </div>
           </div>
@@ -379,14 +389,26 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
           <div className="text-center">
             <Avatar className="w-14 h-14 border border-gray-700 mx-auto mb-2 ring-1 ring-gray-600/30">
               <AvatarImage src={teamAvatars.team2} />
-              <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800 font-bold">
+              <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800 ">
                 {pledge.away_team.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <p className="text-sm font-bold">{pledge.away_team}</p>
-            <p className="text-emerald-400 text-sm">{pledge.odds?.away_win} odds</p>
+             {pledge.selection==="away_team"?
+            <div>
+            <p className="text-sm text-sm  text-red-400">{pledge.away_team}</p>
+          
+            <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
+              <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
+            </div>:
+            <div>
+            <p className="text-sm text-sm  ">{pledge.away_team}</p>
+            <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
+                          </div>
+            }
+           
           </div>
-        </div>
+          </div>
+        
 
         {/* Bet Details */}
         <div className="mb-4">
@@ -396,40 +418,28 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 <Coins className="w-4 h-4 text-emerald-500" />
               </div>
               <div>
-                <p className="text-gray-500 text-xs">STAKE</p>
-                <p className="text-white font-bold">₿{pledge.amount}</p>
+                <p className="text-gray-500 text-xs">stake</p>
+                <p className="text-white">ksh. {pledge.amount}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-gray-500 text-xs">POT SIZE</p>
-              <p className="text-emerald-400 font-bold">₿{(pledge.potential_payout || 0).toFixed(2)}</p>
+              <p className="text-gray-500 text-xs">pot size</p>
+              <p className="text-emerald-400 ">ksh. {(pledge.potential_payout || 0).toFixed(2)}</p>
             </div>
           </div>
           
           {/* Current Bet */}
-          <div className="bg-gray-900/50 rounded-lg p-3 mb-4 border border-gray-800/50">
-            <div className="flex items-center space-x-2 mb-2">
-              <Target className="w-4 h-4 text-emerald-500" />
-              <span className="text-sm font-bold">
-                Betting on: {existingSelection === "homeTeam" ? pledge.home_team : 
-                            existingSelection === "awayTeam" ? pledge.away_team : "Draw"}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <Phone className="w-3 h-3" />
-              <span>{pledge.phone}</span>
-            </div>
-          </div>
+          
         </div>
 
         {/* Accept Bet Button */}
         {!isBetting ? (
           <Button
             onClick={() => setIsBetting(true)}
-            className="w-full bg-gradient-to-r from-emerald-200 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full font-bold py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
+            className="w-full bg-emerald-500/10 text-white rounded-full font-bold py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
           >
             <Swords className="w-5 h-5 mr-2" />
-            ACCEPT THIS BET
+            accept bet
           </Button>
         ) : (
           <div className="space-y-4 animate-in fade-in duration-300">
