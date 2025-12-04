@@ -42,6 +42,7 @@ const Fixtures = () => {
   const [error, setError] = useState("");
   const [userBalance, setUserBalance] = useState(1250.75);
   const API_BASE_URL = 'https://fanclash-api.onrender.com/api/games';
+  const[starter_id,setStaterId]=useState("")
 
   const { toast } = useToast();
 

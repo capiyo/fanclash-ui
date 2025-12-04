@@ -311,7 +311,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
-              <span className="font-bold hover:underline cursor-pointer">{pledge.username}</span>
+              <span className=" text-sm hover:underline cursor-pointer">{pledge.username}</span>
               <CheckCircle className="w-4 h-4 text-emerald-500" />
               <span className="text-gray-500 text-sm">·</span>
               <span className="text-gray-500 text-sm">{formatDate(pledge.created_at || "")}</span>
@@ -348,7 +348,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
 
       {/* Match Info */}
       <div className="ml-13 mb-4">
-        <div className="flex items-center justify-between bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 mb-4 border border-gray-800/50">
+        <div className="flex items-center justify-between  backdrop-blur-sm rounded-xl p-4 mb-4 border border-gray-800/50">
           <div className="text-center">
             <Avatar className="w-14 h-14 border border-gray-700 mx-auto mb-2 ring-1 ring-gray-600/30">
               <AvatarImage src={teamAvatars.team1} />
@@ -356,8 +356,9 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
                 {pledge.home_team.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <p className="text-sm font-bold">{pledge.home_team}</p>
-            <p className="text-emerald-400 text-sm">{pledge.odds?.home_win} odds</p>
+            <p className="text-sm text-sm">{pledge.home_team}</p>
+            <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
+           
           </div>
           
           <div className="text-center px-4">
@@ -389,7 +390,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
 
         {/* Bet Details */}
         <div className="mb-4">
-          <div className="flex items-center justify-between bg-gray-900/30 rounded-lg p-3 mb-3 border border-gray-800/50">
+          <div className="flex items-center justify-between  rounded-lg p-3 mb-3 border border-gray-800/50">
             <div className="flex items-center space-x-3">
               <div className="bg-emerald-500/10 p-2 rounded-lg">
                 <Coins className="w-4 h-4 text-emerald-500" />
@@ -425,7 +426,7 @@ function P2PBettingCard({ pledge, teamAvatars }: { pledge: PledgeData; teamAvata
         {!isBetting ? (
           <Button
             onClick={() => setIsBetting(true)}
-            className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full font-bold py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
+            className="w-full bg-gradient-to-r from-emerald-200 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full font-bold py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
           >
             <Swords className="w-5 h-5 mr-2" />
             ACCEPT THIS BET
