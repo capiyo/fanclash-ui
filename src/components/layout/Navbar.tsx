@@ -3,7 +3,7 @@ import { FanclshLogo } from "@/components/icons/FanclshLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useState,useEffect } from "react";
+import { useState, useEffect } from "react";
 import { PenSquare, FileEdit, PencilLine, SquarePen } from "lucide-react";
 import AddPostModal from "../Footer/AddPostalModal";
 import { useAppDispatch } from '../ReduxPages/store';
@@ -15,41 +15,65 @@ interface NavbarProps {
 
 export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
-  const [openPost,setpost]=useState("")
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const[username,setUsername]=useState("")
-    const[phone,setPhone]=useState("")
-    const [userId,setUserId]=useState("")
-    const dispatch=useAppDispatch()
-   useEffect(() => {
-      try {
-        const userString = localStorage.getItem("user");
-        if (userString) {
-          const user = JSON.parse(userString);
-          setUsername(user.username || "");
-          setPhone(user.phone || "");
-          setUserId(user.id || "");
-        }
-      } catch (error) {
-        console.error("Error parsing user data:", error);
+  const [openPost, setpost] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
+  const [userId, setUserId] = useState("");
+  const dispatch = useAppDispatch();
+  
+  useEffect(() => {
+    try {
+      const userString = localStorage.getItem("user");
+      if (userString) {
+        const user = JSON.parse(userString);
+        setUsername(user.username || "");
+        setPhone(user.phone || "");
+        setUserId(user.id || "");
       }
-    }, []);
-  
-
-  const handleModal=(value)=>{
-  
-    setpost("addpost")
-    console.log("hellooo")
-    setIsModalOpen(true)
-    if(userId){
-      dispatch(setLaydata("account"));
-
+    } catch (error) {
+      console.error("Error parsing user data:", error);
     }
-    else{
-      dispatch(setLaydata(value));
+  }, []);
+
+  const handleModal = (value: string) => {
+    setIsModalOpen(true);
+    
+    // If user is logged in (has userId)
+    if (userId) {
+      // If the button is "login" or "account" button, show account
+      if (value === "login" || value === "account") {
+        dispatch(setLaydata("account"));
+        console.log("User logged in, showing account:", username, userId);
+      }
+      // If it's the addpost button, show addpost
+      else if (value === "addpost") {
+        dispatch(setLaydata("addpost"));
+        console.log("User logged in, showing addpost");
+      }
+      // For any other value, show that value
+      else {
+        dispatch(setLaydata(value));
+      }
     }
-     
-  }
+    // If user is NOT logged in
+    else {
+      // Show login modal for login/account buttons
+      if (value === "login" || value === "account") {
+        dispatch(setLaydata("login"));
+        console.log("User not logged in, showing login");
+      }
+      // Show login for addpost button too (user must be logged in to post)
+      else if (value === "addpost") {
+        dispatch(setLaydata("login"));
+        console.log("User not logged in, must login to add post");
+      }
+      // For other cases, show the requested value
+      else {
+        dispatch(setLaydata(value));
+      }
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-background/90 backdrop-blur-xl border-b border-border/30">
@@ -77,17 +101,18 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
         <div className="hidden md:flex flex-1 max-w-md mx-8">
           <div className="relative w-full">
             <PenSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-           
+            {/* Search input removed for brevity */}
           </div>
         </div>
 
         {/* Right section */}
         <div className="flex items-center gap-2">
+          {/* Add Post Button - Mobile */}
           <Button
             variant="ghost"
             size="icon"
             className="md:hidden text-muted-foreground hover:text-foreground"
-           onClick={()=>handleModal('addpost')}
+            onClick={() => handleModal('addpost')}
           >
             <PenSquare className="h-5 w-5" />
           </Button>
@@ -112,8 +137,9 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             <span>$250.00</span>
           </Button>
 
+          {/* User/Login Button */}
           <Button
-          onClick={()=>handleModal("login")}
+            onClick={() => handleModal("login")}
             variant="ghost"
             size="icon"
             className="text-muted-foreground hover:text-foreground"
@@ -122,19 +148,6 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           </Button>
         </div>
       </div>
-      
-     
-      
-
-      {/* Mobile search */}
-      {searchOpen && (
-        <div className="md:hidden px-4 pb-3 animate-fade-in">
-          <div className="relative w-full">
-            <PenSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-           
-          </div>
-        </div>
-      )}
     </nav>
   );
 };

@@ -123,52 +123,131 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
   };
 
   // Handle deposit payment
-  const handleDeposit = async () => {
-    if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
-      toast.error('Enter valid amount', {
-        duration: 2000,
-        position: 'top-center',
-        style: {
-          background: 'rgba(16, 185, 129, 0.95)',
-          color: 'white',
-          fontSize: '12px',
-          padding: '8px 16px',
-          borderRadius: '8px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(16, 185, 129, 0.3)'
-        }
-      });
-      return;
+ const handleDeposit = async () => {
+  if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
+    toast.error('Enter valid amount', {
+      duration: 2000,
+      position: 'top-center',
+      style: {
+        background: 'rgba(16, 185, 129, 0.95)',
+        color: 'white',
+        fontSize: '12px',
+        padding: '8px 16px',
+        borderRadius: '8px',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(16, 185, 129, 0.3)'
+      }
+    });
+    return;
+  }
+
+  if (!depositPhone || depositPhone.replace(/\D/g, '').length !== 10) {
+    toast.error('Enter valid 10-digit phone', {
+      duration: 2000,
+      position: 'top-center',
+      style: {
+        background: 'rgba(16, 185, 129, 0.95)',
+        color: 'white',
+        fontSize: '12px',
+        padding: '8px 16px',
+        borderRadius: '8px',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(16, 185, 129, 0.3)'
+      }
+    });
+    return;
+  }
+
+  const amount = Number(depositAmount);
+  const phoneNumber = depositPhone;
+
+  try {
+    setIsProcessing(true);
+    
+    // Show centered emerald processing toast
+    toast.loading('Processing...', { 
+      id: 'deposit',
+      duration: 5000,
+      position: 'top-center',
+      style: {
+        background: 'rgba(16, 185, 129, 0.95)',
+        color: 'white',
+        fontSize: '12px',
+        padding: '8px 16px',
+        borderRadius: '8px',
+        minWidth: '120px',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(16, 185, 129, 0.3)'
+      },
+    });
+    
+    // Get or generate user ID
+    const userId = formData.id || generateUserId();
+    
+    // Clean phone number and convert to format: 2547XXXXXXXX
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      throw new Error('Invalid phone number');
+    }
+    
+    // Convert from 07XXXXXXXX to 2547XXXXXXXX
+    const formattedPhone = '254' + cleanPhone.substring(1);
+
+    // Update phone in form data if different
+    if (formData.phone !== phoneNumber) {
+      const updatedFormData = { 
+        ...formData, 
+        phone: phoneNumber,
+        id: userId 
+      };
+      setFormData(updatedFormData);
+      localStorage.setItem('userProfile', JSON.stringify(updatedFormData));
     }
 
-    if (!depositPhone || depositPhone.replace(/\D/g, '').length !== 10) {
-      toast.error('Enter valid 10-digit phone', {
-        duration: 2000,
-        position: 'top-center',
-        style: {
-          background: 'rgba(16, 185, 129, 0.95)',
-          color: 'white',
-          fontSize: '12px',
-          padding: '8px 16px',
-          borderRadius: '8px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(16, 185, 129, 0.3)'
-        }
-      });
-      return;
-    }
+    // Call M-Pesa API with the correct format
+    const response = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        phone_number: formattedPhone, // Must be "254712345678"
+        amount: amount.toString(), // Must be string
+        account_reference: userId, // Use user ID as reference
+        transaction_desc: "FanClash Deposit" // Optional description
+      }),
+    });
 
-    const amount = Number(depositAmount);
-    const phoneNumber = depositPhone;
+    const data = await response.json();
 
-    try {
-      setIsProcessing(true);
+    if (data.success) {
+      // Update local balance
+      const updatedBalance = formData.balance + amount;
+      const updatedFormData = { 
+        ...formData, 
+        balance: updatedBalance,
+        phone: phoneNumber,
+        id: userId 
+      };
       
-      // Show centered emerald processing toast
-      toast.loading('Processing...', { 
+      setFormData(updatedFormData);
+      
+      // Update localStorage
+      localStorage.setItem('userProfile', JSON.stringify(updatedFormData));
+      
+      // Show success animation
+      setRecentDeposit(amount);
+      setTimeout(() => setRecentDeposit(null), 3000);
+      
+      // Update server balance via user ID
+      await updateUserBalance(userId, updatedBalance);
+      
+      // Show centered emerald success toast
+      toast.success(`+Ksh ${amount.toLocaleString()}`, { 
         id: 'deposit',
-        duration: 5000,
+        duration: 2000,
         position: 'top-center',
+        icon: '✅',
         style: {
           background: 'rgba(16, 185, 129, 0.95)',
           color: 'white',
@@ -181,109 +260,33 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
         },
       });
       
-      // Get or generate user ID
-      const userId = formData.id || generateUserId();
-      
-      // Clean phone number
-      const cleanPhone = phoneNumber.replace(/\D/g, '');
-      if (cleanPhone.length !== 10) {
-        throw new Error('Invalid phone number');
-      }
-
-      // Update phone in form data if different
-      if (formData.phone !== phoneNumber) {
-        const updatedFormData = { 
-          ...formData, 
-          phone: phoneNumber,
-          id: userId 
-        };
-        setFormData(updatedFormData);
-        localStorage.setItem('userProfile', JSON.stringify(updatedFormData));
-      }
-
-      // Call M-Pesa API
-      const response = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          phone: cleanPhone,
-          amount,
-          timestamp: new Date().toISOString(),
-        }),
-      });
-
-      const data: PaymentResponse = await response.json();
-
-      if (data.success) {
-        // Update local balance
-        const updatedBalance = formData.balance + amount;
-        const updatedFormData = { 
-          ...formData, 
-          balance: updatedBalance,
-          phone: phoneNumber,
-          id: userId 
-        };
-        
-        setFormData(updatedFormData);
-        
-        // Update localStorage
-        localStorage.setItem('userProfile', JSON.stringify(updatedFormData));
-        
-        // Show success animation
-        setRecentDeposit(amount);
-        setTimeout(() => setRecentDeposit(null), 3000);
-        
-        // Update server balance via user ID
-        await updateUserBalance(userId, updatedBalance);
-        
-        // Show centered emerald success toast
-        toast.success(`+Ksh ${amount.toLocaleString()}`, { 
-          id: 'deposit',
-          duration: 2000,
-          position: 'top-center',
-          icon: '✅',
-          style: {
-            background: 'rgba(16, 185, 129, 0.95)',
-            color: 'white',
-            fontSize: '12px',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            minWidth: '120px',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(16, 185, 129, 0.3)'
-          },
-        });
-        
-        // Reset form and go back to view page
-        setDepositAmount('');
-        setCurrentPage('view');
-      } else {
-        throw new Error(data.message || 'Payment failed');
-      }
-    } catch (error) {
-      console.error('Deposit error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed', {
-        id: 'deposit',
-        duration: 2000,
-        position: 'top-center',
-        style: {
-          background: 'rgba(16, 185, 129, 0.95)',
-          color: 'white',
-          fontSize: '12px',
-          padding: '8px 16px',
-          borderRadius: '8px',
-          minWidth: '120px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(16, 185, 129, 0.3)'
-        },
-      });
-    } finally {
-      setIsProcessing(false);
+      // Reset form and go back to view page
+      setDepositAmount('');
+      setCurrentPage('view');
+    } else {
+      throw new Error(data.error || data.message || 'Payment failed');
     }
-  };
+  } catch (error) {
+    console.error('Deposit error:', error);
+    toast.error(error instanceof Error ? error.message : 'Payment failed', {
+      id: 'deposit',
+      duration: 2000,
+      position: 'top-center',
+      style: {
+        background: 'rgba(16, 185, 129, 0.95)',
+        color: 'white',
+        fontSize: '12px',
+        padding: '8px 16px',
+        borderRadius: '8px',
+        minWidth: '120px',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(16, 185, 129, 0.3)'
+      },
+    });
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   useEffect(() => {
     const savedData = localStorage.getItem('userProfile');
