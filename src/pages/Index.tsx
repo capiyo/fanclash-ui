@@ -160,7 +160,7 @@ const Index = () => {
          isOpen={postisOpen} 
         onClose={changeLayData}   />
         <UserProfileModal
-         isOpen={loginOpen} 
+         isOpen={account} 
         onClose={changeLayData}
         
            />
