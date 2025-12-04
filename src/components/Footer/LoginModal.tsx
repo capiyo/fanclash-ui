@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Phone, ArrowRight, LogIn, UserPlus, X } from 'lucide-react';
+import { User, Lock, Phone, ArrowRight, LogIn, UserPlus, X, Shield, Sparkles } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from 'react-hot-toast';
 
@@ -83,15 +83,36 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
       if (result.token) {
         localStorage.setItem("usertoken", result.token);
         localStorage.setItem("user", JSON.stringify(result.user));
-        toast.success('Login successful!');
+        toast.success('Login successful!', {
+          style: {
+            background: 'rgba(16, 185, 129, 0.95)',
+            color: 'white',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(16, 185, 129, 0.3)'
+          }
+        });
         if (onLoginSuccess) onLoginSuccess();
         onClose();
       } else {
-        toast.error(result.error || 'Login failed');
+        toast.error(result.error || 'Login failed', {
+          style: {
+            background: 'rgba(239, 68, 68, 0.95)',
+            color: 'white',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(239, 68, 68, 0.3)'
+          }
+        });
       }
     } catch (err) {
       console.log(err);
-      toast.error("Connection error");
+      toast.error("Connection error", {
+        style: {
+          background: 'rgba(239, 68, 68, 0.95)',
+          color: 'white',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(239, 68, 68, 0.3)'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -111,15 +132,36 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
       if (result.success) {
         localStorage.setItem("usertoken", result.token);
         localStorage.setItem("user", JSON.stringify(result.user));
-        toast.success('Registration successful!');
+        toast.success('Registration successful!', {
+          style: {
+            background: 'rgba(16, 185, 129, 0.95)',
+            color: 'white',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(16, 185, 129, 0.3)'
+          }
+        });
         if (onLoginSuccess) onLoginSuccess();
         onClose();
       } else {
-        toast.error(result.error || 'Registration failed');
+        toast.error(result.error || 'Registration failed', {
+          style: {
+            background: 'rgba(239, 68, 68, 0.95)',
+            color: 'white',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(239, 68, 68, 0.3)'
+          }
+        });
       }
     } catch (err) {
       console.log(err);
-      toast.error("Connection error");
+      toast.error("Connection error", {
+        style: {
+          background: 'rgba(239, 68, 68, 0.95)',
+          color: 'white',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(239, 68, 68, 0.3)'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -151,62 +193,53 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Transparent Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
       />
       
       {/* Modal Container */}
       <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
         <motion.div
           ref={modalRef}
-          variants={{
-            hidden: { y: "100%", opacity: 0 },
-            visible: { 
-              y: 0, 
-              opacity: 1,
-              transition: { 
-                duration: 0.4,
-                type: "spring",
-                damping: 25,
-                stiffness: 300
-              }
-            },
-            exit: {
-              y: "100%",
-              opacity: 0,
-              transition: { duration: 0.3 }
-            }
+          initial={{ y: "100%", scale: 0.95 }}
+          animate={{ y: 0, scale: 1 }}
+          exit={{ y: "100%", scale: 0.95 }}
+          transition={{ 
+            type: "spring",
+            damping: 25,
+            stiffness: 300
           }}
-          initial="hidden"
-          animate="visible"
-          exit="hidden"
-          className="relative w-full max-w-md sm:max-h-[90vh]"
+          className="relative w-full max-w-md"
         >
-          {/* Main Card with rounded top for mobile */}
-          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden border border-border max-h-[85vh] overflow-y-auto">
+          {/* Main Card - Glass Morphism */}
+          <div className="relative bg-gradient-to-br from-white/[0.08] to-white/[0.04] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden border border-white/[0.15] backdrop-blur-[20px]">
+            
+            {/* Frosted glass effect overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-green-500/[0.03] pointer-events-none" />
+            
             {/* Mobile handle */}
-            <div className="sm:hidden pt-4 pb-2 flex justify-center">
-              <div className="w-16 h-1.5 bg-secondary rounded-full"></div>
+            <div className="sm:hidden pt-4 pb-2 flex justify-center relative z-10">
+              <div className="w-16 h-1.5 bg-gradient-to-r from-white/[0.3] via-white/[0.5] to-white/[0.3] rounded-full shadow-lg shadow-white/[0.1]"></div>
             </div>
             
             {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5">
-              <div className="flex items-center justify-between">
+            <div className="relative p-4 border-b border-white/[0.15] backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.05] via-transparent to-green-500/[0.05] opacity-50" />
+              <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-primary/10">
-                    <User className="w-5 h-5 text-primary" />
+                  <div className="p-2 rounded-full bg-white/[0.1] border border-white/[0.2] backdrop-blur-sm">
+                    <User className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-foreground text-xl font-bold">
-                      {isLogin ? 'Sign In' : 'Create Account'}
+                    <h2 className="text-white text-xl font-bold">
+                      {isLogin ? 'Welcome Back' : 'Join FanClash'}
                     </h2>
-                    <p className="text-muted-foreground text-sm">
-                      {isLogin ? 'Access your betting account' : 'Join the betting community'}
+                    <p className="text-white/[0.6] text-sm">
+                      {isLogin ? 'Sign in to continue betting' : 'Create your betting account'}
                     </p>
                   </div>
                 </div>
@@ -215,26 +248,26 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                   variant="ghost"
                   size="icon"
                   onClick={onClose}
-                  className="h-10 w-10 rounded-full hover:bg-secondary"
+                  className="h-10 w-10 rounded-full hover:bg-white/[0.1] backdrop-blur-sm border border-white/[0.15]"
                 >
-                  <X className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                  <X className="h-5 w-5 text-white/[0.8] hover:text-white" />
                 </Button>
               </div>
             </div>
 
             <div className="p-4">
-              {/* Toggle Switch */}
+              {/* Toggle Switch - Glass Effect */}
               <div className="mb-6">
-                <div className="relative bg-secondary rounded-xl p-1 flex">
+                <div className="relative bg-white/[0.05] rounded-xl p-1 flex border border-white/[0.1] backdrop-blur-sm">
                   <div 
-                    className="absolute top-1 left-1 w-1/2 h-[calc(100%-0.5rem)] bg-background rounded-lg shadow-sm transition-all duration-500"
+                    className="absolute top-1 left-1 w-1/2 h-[calc(100%-0.5rem)] bg-white/[0.15] rounded-lg shadow-sm transition-all duration-500 backdrop-blur-sm"
                     style={{ transform: isLogin ? 'translateX(0)' : 'translateX(100%)' }}
                   ></div>
                   <button
                     onClick={() => setIsLogin(true)}
                     className={cn(
                       "relative z-10 flex-1 py-2 text-center rounded-lg transition-all duration-300 text-sm",
-                      isLogin ? "text-foreground font-semibold" : "text-muted-foreground"
+                      isLogin ? "text-white font-semibold" : "text-white/[0.6]"
                     )}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -246,7 +279,7 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                     onClick={() => setIsLogin(false)}
                     className={cn(
                       "relative z-10 flex-1 py-2 text-center rounded-lg transition-all duration-300 text-sm",
-                      !isLogin ? "text-foreground font-semibold" : "text-muted-foreground"
+                      !isLogin ? "text-white font-semibold" : "text-white/[0.6]"
                     )}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -271,21 +304,21 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                     {/* Username */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium text-foreground">Username</label>
+                        <User className="h-4 w-4 text-emerald-300" />
+                        <label className="text-sm font-medium text-white">Username</label>
                       </div>
                       <input
                         {...loginForm.register("username", { required: "Username is required" })}
                         type="text"
-                        className="w-full p-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-background text-foreground text-sm placeholder-muted-foreground transition-colors"
-                        placeholder="e.g. tesla"
+                        className="w-full p-3 border border-white/[0.15] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] text-white text-sm placeholder-white/[0.4] transition-all backdrop-blur-sm"
+                        placeholder="Enter your username"
                         disabled={isLoading}
                       />
                       {loginForm.formState.errors.username && (
                         <motion.p 
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="text-xs text-destructive"
+                          className="text-xs text-red-400"
                         >
                           {loginForm.formState.errors.username.message}
                         </motion.p>
@@ -295,8 +328,8 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                     {/* Password */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Lock className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium text-foreground">Password</label>
+                        <Lock className="h-4 w-4 text-emerald-300" />
+                        <label className="text-sm font-medium text-white">Password</label>
                       </div>
                       <input
                         {...loginForm.register("password", { 
@@ -307,19 +340,29 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                           }
                         })}
                         type="password"
-                        className="w-full p-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-background text-foreground text-sm placeholder-muted-foreground transition-colors"
-                        placeholder="e.g. @tesla"
+                        className="w-full p-3 border border-white/[0.15] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] text-white text-sm placeholder-white/[0.4] transition-all backdrop-blur-sm"
+                        placeholder="Enter your password"
                         disabled={isLoading}
                       />
                       {loginForm.formState.errors.password && (
                         <motion.p 
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="text-xs text-destructive"
+                          className="text-xs text-red-400"
                         >
                           {loginForm.formState.errors.password.message}
                         </motion.p>
                       )}
+                    </div>
+
+                    {/* Security Note */}
+                    <div className="p-3 bg-white/[0.05] rounded-lg border border-white/[0.1] backdrop-blur-sm">
+                      <div className="flex items-start gap-2">
+                        <Shield className="h-4 w-4 text-emerald-300 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-white/[0.7]">
+                          Your account is secured with end-to-end encryption
+                        </p>
+                      </div>
                     </div>
 
                     {/* Submit Button */}
@@ -330,14 +373,14 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                       <Button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 text-sm"
+                        className="w-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold py-3 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 text-sm backdrop-blur-sm"
                       >
                         <div className="flex items-center justify-center gap-2">
                           {isLoading ? (
                             <motion.div
                               animate={{ rotate: 360 }}
                               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                              className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full"
+                              className="h-4 w-4 border-2 border-white border-t-transparent rounded-full"
                             />
                           ) : (
                             <>
@@ -362,23 +405,23 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                     {/* Username */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium text-foreground">Username</label>
+                        <User className="h-4 w-4 text-emerald-300" />
+                        <label className="text-sm font-medium text-white">Username</label>
                       </div>
                       <input
                         {...registerForm.register("username", { 
                           required: "Username is required"
                         })}
                         type="text"
-                        className="w-full p-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-background text-foreground text-sm placeholder-muted-foreground transition-colors"
-                        placeholder="e.g. tesla"
+                        className="w-full p-3 border border-white/[0.15] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] text-white text-sm placeholder-white/[0.4] transition-all backdrop-blur-sm"
+                        placeholder="Choose a username"
                         disabled={isLoading}
                       />
                       {registerForm.formState.errors.username && (
                         <motion.p 
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="text-xs text-destructive"
+                          className="text-xs text-red-400"
                         >
                           {registerForm.formState.errors.username.message}
                         </motion.p>
@@ -388,8 +431,8 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                     {/* Phone */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium text-foreground">Phone Number</label>
+                        <Phone className="h-4 w-4 text-emerald-300" />
+                        <label className="text-sm font-medium text-white">Phone Number</label>
                       </div>
                       <input
                         {...registerForm.register("phone", { 
@@ -400,7 +443,7 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                           }
                         })}
                         type="tel"
-                        className="w-full p-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-background text-foreground text-sm placeholder-muted-foreground transition-colors"
+                        className="w-full p-3 border border-white/[0.15] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] text-white text-sm placeholder-white/[0.4] transition-all backdrop-blur-sm"
                         placeholder="e.g 0712345679"
                         disabled={isLoading}
                       />
@@ -408,7 +451,7 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                         <motion.p 
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="text-xs text-destructive"
+                          className="text-xs text-red-400"
                         >
                           {registerForm.formState.errors.phone.message}
                         </motion.p>
@@ -418,8 +461,8 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                     {/* Password */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Lock className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium text-foreground">Password</label>
+                        <Lock className="h-4 w-4 text-emerald-300" />
+                        <label className="text-sm font-medium text-white">Password</label>
                       </div>
                       <input
                         {...registerForm.register("password", { 
@@ -430,19 +473,43 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                           }
                         })}
                         type="password"
-                        className="w-full p-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-background text-foreground text-sm placeholder-muted-foreground transition-colors"
-                        placeholder="e.g @tesla"
+                        className="w-full p-3 border border-white/[0.15] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] text-white text-sm placeholder-white/[0.4] transition-all backdrop-blur-sm"
+                        placeholder="Create a strong password"
                         disabled={isLoading}
                       />
                       {registerForm.formState.errors.password && (
                         <motion.p 
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="text-xs text-destructive"
+                          className="text-xs text-red-400"
                         >
                           {registerForm.formState.errors.password.message}
                         </motion.p>
                       )}
+                    </div>
+
+                    {/* Registration Benefits */}
+                    <div className="p-3 bg-white/[0.05] rounded-lg border border-white/[0.1] backdrop-blur-sm">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="h-4 w-4 text-emerald-300 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-white font-semibold mb-1">Registration Benefits:</p>
+                          <ul className="text-xs text-white/[0.7] space-y-1">
+                            <li className="flex items-center gap-1">
+                              <div className="w-1 h-1 rounded-full bg-emerald-400"></div>
+                              Start with Ksh 100 bonus
+                            </li>
+                            <li className="flex items-center gap-1">
+                              <div className="w-1 h-1 rounded-full bg-emerald-400"></div>
+                              Join betting communities
+                            </li>
+                            <li className="flex items-center gap-1">
+                              <div className="w-1 h-1 rounded-full bg-emerald-400"></div>
+                              Share your predictions
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Submit Button */}
@@ -453,18 +520,18 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                       <Button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 text-sm"
+                        className="w-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold py-3 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 text-sm backdrop-blur-sm"
                       >
                         <div className="flex items-center justify-center gap-2">
                           {isLoading ? (
                             <motion.div
                               animate={{ rotate: 360 }}
                               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                              className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full"
+                              className="h-4 w-4 border-2 border-white border-t-transparent rounded-full"
                             />
                           ) : (
                             <>
-                              Register
+                              Create Account
                               <ArrowRight className="h-3.5 w-3.5" />
                             </>
                           )}
@@ -482,14 +549,14 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                 transition={{ delay: 0.2 }}
                 className="mt-6 text-center"
               >
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-white/[0.6]">
                   {isLogin ? "Don't have an account? " : "Already have an account? "}
                   <button
                     type="button"
                     onClick={() => setIsLogin(!isLogin)}
-                    className="text-primary hover:text-primary/80 font-semibold transition-colors"
+                    className="text-emerald-300 hover:text-emerald-200 font-semibold transition-colors"
                   >
-                    {isLogin ? 'Register' : 'Sign in'}
+                    {isLogin ? 'Register Now' : 'Sign In'}
                   </button>
                 </p>
               </motion.div>
@@ -498,8 +565,8 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
           
           {/* Mobile close hint */}
           <div className="sm:hidden text-center mt-3">
-            <p className="text-xs text-muted-foreground">
-              Tap outside or swipe down to close
+            <p className="text-xs text-white/[0.5]">
+              Swipe down to close
             </p>
           </div>
         </motion.div>

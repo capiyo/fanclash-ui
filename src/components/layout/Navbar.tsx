@@ -3,7 +3,7 @@ import { FanclshLogo } from "@/components/icons/FanclshLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { PenSquare, FileEdit, PencilLine, SquarePen } from "lucide-react";
 import AddPostModal from "../Footer/AddPostalModal";
 import { useAppDispatch } from '../ReduxPages/store';
@@ -17,7 +17,23 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [openPost,setpost]=useState("")
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const[username,setUsername]=useState("")
+    const[phone,setPhone]=useState("")
+    const [userId,setUserId]=useState("")
     const dispatch=useAppDispatch()
+   useEffect(() => {
+      try {
+        const userString = localStorage.getItem("user");
+        if (userString) {
+          const user = JSON.parse(userString);
+          setUsername(user.username || "");
+          setPhone(user.phone || "");
+          setUserId(user.id || "");
+        }
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }, []);
   
 
   const handleModal=(value)=>{
@@ -25,7 +41,14 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
     setpost("addpost")
     console.log("hellooo")
     setIsModalOpen(true)
-     dispatch(setLaydata(value));
+    if(userId){
+      dispatch(setLaydata("account"));
+
+    }
+    else{
+      dispatch(setLaydata(value));
+    }
+     
   }
 
   return (

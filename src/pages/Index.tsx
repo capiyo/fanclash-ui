@@ -15,6 +15,8 @@ import { RootState } from "@/components/ReduxPages/store";
 import { useAppDispatch } from "@/components/ReduxPages/store";
 import { setLaydata } from "@/components/ReduxPages/slices/overlaySlice";
 import { LoginModal } from "@/components/Footer/LoginModal";
+import { UserProfileModal } from "@/components/Footer/UserProfileModal";
+
 
 
 const Index = () => {
@@ -29,6 +31,8 @@ const Index = () => {
       const[postisOpen,setPostOpen]=useState(false)
       const[loginOpen,setLoging]=useState(false)
       const dispatch=useAppDispatch()
+      const [currentUser, setCurrentUser] = useState(null);
+      const[account,setAccount]=useState(false)
     console.log(overlay)
 
 
@@ -65,6 +69,12 @@ const Index = () => {
         }
         else{
           setLoging(false)
+        }
+        if(overlay=="account"){
+          setAccount(true)
+        }
+        else{
+          setAccount(false)
         }
         
 
@@ -149,9 +159,17 @@ const Index = () => {
          <AddPostModal     
          isOpen={postisOpen} 
         onClose={changeLayData}   />
-        <LoginModal  
+        <UserProfileModal
          isOpen={loginOpen} 
-        onClose={changeLayData}   />
+        onClose={changeLayData}
+        
+           />
+
+           <LoginModal
+         isOpen={loginOpen} 
+        onClose={changeLayData}
+        
+           />
       </main>
     </div>
   );
