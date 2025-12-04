@@ -49,7 +49,7 @@ const PledgeCard = () => {
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState<'all' | 'available' | 'matched'>('all');
   const [userBalance, setUserBalance] = useState(1250.75);
-  const API_BASE_URL = 'http://localhost:3000/api/pledges';
+  const API_BASE_URL = 'https://fanclash-api.onrender.com/api';
 
   const { toast } = useToast();
 
@@ -374,7 +374,7 @@ const sendBetAgainst = async () => {
 
     console.log("Creating new bet with data:", createBetData);
 
-    const response = await fetch(`http://localhost:3000/api/bets`, {
+    const response = await fetch(`https://fanclash-api.onrender.com/api/bets`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
