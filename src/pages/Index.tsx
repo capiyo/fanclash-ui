@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { HeroSection } from "@/components/home/HeroSection";
-import { PostsFeed } from "@/components/home/PostsFeed";
-import { FixturesList } from "@/components/home/FixturesList";
+import  PostsFeed  from "@/components/home/PostsFeed";
+import  FixturesList  from "@/components/home/FixturesList";
 import { MessageSquare, Calendar, CircleDotDashed, FileCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Posts from "@/components/Footer/Posts";
+import Posts from "@/components/Footer/PostsMobile";
 import PledgeCard from "@/components/Footer/PledgeCard";
 import Fixtures from "@/components/Footer/Fixtures";
 import AddPostModal from "@/components/Footer/AddPostalModal";
@@ -16,6 +16,7 @@ import { useAppDispatch } from "@/components/ReduxPages/store";
 import { setLaydata } from "@/components/ReduxPages/slices/overlaySlice";
 import { LoginModal } from "@/components/Footer/LoginModal";
 import { UserProfileModal } from "@/components/Footer/UserProfileModal";
+import PostsMobile from "@/components/Footer/PostsMobile";
 
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -82,7 +83,7 @@ const Index = () => {
   }, [overlay]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background  overflow-hidden">
       <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -121,7 +122,7 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="posts" className="mt-1">
-                <Posts />
+                <PostsMobile/>
               </TabsContent>
               <TabsContent value="fixtures" className="mt-1">
                 <Fixtures />
@@ -133,23 +134,19 @@ const Index = () => {
           </div>
 
           {/* Desktop split view */}
-          <div className="hidden lg:grid lg:grid-cols-2 gap-8 mt-8">
+          <div className="hidden lg:flex flex-row mt-8">
             {/* Posts column */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">
-                  Community Posts
-                </h2>
-              </div>
+            <div className="flex" >
               <PostsFeed />
-            </section>
+            </div>
 
             {/* Fixtures column */}
-            <section>
-              <FixturesList />
-            </section>
+            <div >
+              <FixturesList/>
+            </div>
           </div>
+
+          
         </div>
 
         {/* Modals */}
