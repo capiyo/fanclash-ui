@@ -17,7 +17,7 @@ interface PledgeData {
   home_team: string;
   selection: string;
   fan: string;
-  starter_id:string;
+  starter_id: string;
   username: string;
   phone: string;
   time: string;
@@ -34,22 +34,24 @@ interface PledgeData {
   sport_type?: string;
 }
 
-interface AcceptBetData {
-  finisher_id: string;
-  finisher_username: string;
-  finisher_team: string;
-  finisher_amount: number;
+interface UserData {
+  id: string;
+  username: string;
+  phone: string;
+  balance: number;
+  clubFan?: string;
+  countryFan?: string;
+  nickname?: string;
+  numberOfBets?: number;
 }
 
 const PledgeCard = () => {
-  const [myId, setMyId] = useState("");
-  const [myName, setMyname] = useState("");
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [pledges, setPledges] = useState<PledgeData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState<'all' | 'available' | 'matched'>('all');
-  const [userBalance, setUserBalance] = useState(1250.75);
-  const API_BASE_URL = 'https://fanclash-api.onrender.com/api';
+  const API_BASE_URL = 'https://fanclash-api.onrender.com';
 
   const { toast } = useToast();
 
@@ -62,32 +64,90 @@ const PledgeCard = () => {
     user3: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop"
   };
 
-  useEffect(() => {
-    // Load user info from localStorage
+  // Fetch current user from backend
+  const fetchCurrentUser = async () => {
     try {
-      const userString = localStorage.getItem("user");
-      if (userString) {
-        const user = JSON.parse(userString);
-        // Use user.id (not user._id) - match what AddPost uses
-        setMyId(user.id || "");
-        setMyname(user.username || "");
-        console.log("✅ User loaded - ID:", user.id, "Name:", user.username);
+      // First check localStorage for user ID
+      const userString = localStorage.getItem("userProfile");
+      if (!userString) {
+        console.log("No user profile in localStorage");
+        return null;
       }
+
+      const localUser = JSON.parse(userString);
+      if (!localUser.id) {
+        console.log("No user ID in localStorage");
+        return null;
+      }
+
+      // Fetch user data from backend
+      const response = await fetch(`${API_BASE_URL}/api/users/profiles/${localUser.id}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        console.warn("Failed to fetch user from backend, using local data");
+        return {
+          id: localUser.id,
+          username: localUser.username || "",
+          phone: localUser.phone || "",
+          balance: localUser.balance || 0
+        };
+      }
+
+      const backendUser = await response.json();
+      console.log("Backend user data:", backendUser);
+
+      // Format user data from backend
+      const userData: UserData = {
+        id: backendUser.user_id || backendUser.id || localUser.id,
+        username: backendUser.username || localUser.username || "",
+        phone: backendUser.phone || localUser.phone || "",
+        balance: backendUser.balance || localUser.balance || 0,
+        clubFan: backendUser.club_fan || localUser.clubFan,
+        countryFan: backendUser.country_fan || localUser.countryFan,
+        nickname: backendUser.nickname || localUser.nickname,
+        numberOfBets: backendUser.number_of_bets || localUser.numberOfBets
+      };
+
+      // Update localStorage with backend data
+      localStorage.setItem("userProfile", JSON.stringify({
+        ...localUser,
+        ...userData
+      }));
+
+      return userData;
     } catch (error) {
-      console.error("Error parsing user data:", error);
+      console.error("Error fetching user:", error);
+      return null;
     }
-  }, []);
+  };
 
   useEffect(() => {
-    const getPledges = async () => {
+    const loadUserAndPledges = async () => {
       try {
         setLoading(true);
-        setError("");
+        
+        // Load user first
+        const user = await fetchCurrentUser();
+        setCurrentUser(user);
+        
+        if (!user) {
+          toast({
+            title: "Please Setup Profile",
+            description: "You need to create a profile to view bets",
+            variant: "destructive"
+          });
+        }
+
+        // Then load pledges
         const data = await fetchPledges();
         setPledges(data);
+        
       } catch (err) {
-        console.error("Error fetching pledges:", err);
-        setError("Failed to load P2P bets");
+        console.error("Error loading data:", err);
+        setError("Failed to load data");
         toast({
           title: "Connection Error",
           description: "Unable to fetch betting opportunities",
@@ -97,37 +157,97 @@ const PledgeCard = () => {
         setLoading(false);
       }
     };
-    getPledges();
+
+    loadUserAndPledges();
   }, []);
 
   async function fetchPledges(): Promise<PledgeData[]> {
     try {
-      const response = await fetch(API_BASE_URL, {
+      const response = await fetch(`${API_BASE_URL}/api/pledges`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
       
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const data: PledgeData[] = await response.json();
-      const enhancedData = data.map(pledge => ({
-        ...pledge,
-        status: pledge.status || 'active',
-        potential_payout: pledge.amount * (Math.random() * 3 + 1.5),
-        sport_type: ['Football', 'Basketball', 'Tennis', 'Cricket'][Math.floor(Math.random() * 4)],
-        match_time: new Date(Date.now() + Math.random() * 86400000).toISOString(),
-        odds: pledge.odds || {
-          home_win: (Math.random() * 4 + 1.2).toFixed(2),
-          away_win: (Math.random() * 4 + 1.2).toFixed(2),
-          draw: (Math.random() * 4 + 1.2).toFixed(2)
+      if (!response.ok) {
+        // Try alternative endpoint
+        const altResponse = await fetch(`${API_BASE_URL}/pledges`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!altResponse.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      }));
+        
+        const data = await altResponse.json();
+        return formatPledgesData(data);
+      }
       
-      return enhancedData;
+      const data = await response.json();
+      return formatPledgesData(data);
+      
     } catch (error) {
       console.error("Failed to fetch P2P bets:", error);
-      throw error;
+      
+      // Fallback to mock data
+      return generateMockPledges();
     }
+  }
+
+  function formatPledgesData(data: any[]): PledgeData[] {
+    return data.map(item => ({
+      _id: item._id || item.id,
+      amount: item.amount || item.starter_amount || 0,
+      home_team: item.home_team || "Home Team",
+      away_team: item.away_team || "Away Team",
+      selection: item.selection || item.starter_selection || "home_team",
+      fan: item.fan || item.starter_username || "User",
+      starter_id: item.starter_id || item.user_id || "",
+      username: item.username || item.starter_username || "Unknown",
+      phone: item.phone || "",
+      time: item.time || item.created_at || new Date().toISOString(),
+      created_at: item.created_at || new Date().toISOString(),
+      odds: item.odds || {
+        home_win: (Math.random() * 4 + 1.2).toFixed(2),
+        away_win: (Math.random() * 4 + 1.2).toFixed(2),
+        draw: (Math.random() * 4 + 1.2).toFixed(2)
+      },
+      status: item.status || 'active',
+      potential_payout: item.potential_payout || item.amount * (Math.random() * 3 + 1.5),
+      sport_type: item.sport_type || ['Football', 'Basketball', 'Tennis', 'Cricket'][Math.floor(Math.random() * 4)],
+      match_time: item.match_time || new Date(Date.now() + Math.random() * 86400000).toISOString()
+    }));
+  }
+
+  function generateMockPledges(): PledgeData[] {
+    const mockPledges = [
+      {
+        amount: 500,
+        home_team: "Arsenal",
+        away_team: "Man United",
+        selection: "home_team",
+        fan: "Gunners",
+        starter_id: "starter_001",
+        username: "GunnerFan",
+        phone: "0712345678",
+        time: new Date().toISOString(),
+        _id: "mock_001"
+      },
+      {
+        amount: 1000,
+        home_team: "Liverpool",
+        away_team: "Chelsea",
+        selection: "away_team",
+        fan: "Blues",
+        starter_id: "starter_002",
+        username: "ChelseaFan",
+        phone: "0723456789",
+        time: new Date().toISOString(),
+        _id: "mock_002"
+      }
+    ];
+    
+    return formatPledgesData(mockPledges);
   }
 
   const filteredPledges = pledges.filter(pledge => {
@@ -138,6 +258,29 @@ const PledgeCard = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white font-sans">
+      {/* User Balance Bar */}
+      {currentUser && (
+        <div className="sticky top-0 z-10 bg-gradient-to-r from-gray-900 to-black border-b border-gray-800/50 py-2 px-4">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-emerald-500" />
+              <span className="text-sm text-gray-400">Balance:</span>
+              <span className="text-emerald-400 font-bold text-sm">
+                Ksh {currentUser.balance.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Avatar className="w-6 h-6">
+                <AvatarFallback className="bg-emerald-500 text-xs">
+                  {currentUser.username.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm">{currentUser.username}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filter Buttons */}
       <div className="max-w-2xl mx-auto p-4">
         <div className="flex space-x-2 mb-6">
@@ -189,7 +332,8 @@ const PledgeCard = () => {
               <P2PBettingCard 
                 pledge={pledge} 
                 teamAvatars={teamAvatars} 
-                currentUserId={myId}
+                currentUser={currentUser}
+                refreshUserData={() => fetchCurrentUser().then(user => setCurrentUser(user))}
               />
             </div>
           ))}
@@ -240,7 +384,14 @@ const PledgeCard = () => {
   );
 };
 
-function P2PBettingCard({ pledge, teamAvatars, currentUserId }: { pledge: PledgeData; teamAvatars: any; currentUserId: string }) {
+interface P2PBettingCardProps {
+  pledge: PledgeData;
+  teamAvatars: any;
+  currentUser: UserData | null;
+  refreshUserData: () => void;
+}
+
+function P2PBettingCard({ pledge, teamAvatars, currentUser, refreshUserData }: P2PBettingCardProps) {
   const [betAgainstAmount, setBetAgainstAmount] = useState("");
   const [betAgainstOption, setBetAgainstOption] = useState("");
   const [isBetting, setIsBetting] = useState(false);
@@ -249,36 +400,12 @@ function P2PBettingCard({ pledge, teamAvatars, currentUserId }: { pledge: Pledge
   const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 50) + 20);
   const [commentCount, setCommentCount] = useState(Math.floor(Math.random() * 20) + 5);
   const { toast } = useToast();
-  const[username,setUsername]=useState("")
-  const[userId,setUserId]=useState("")
-  const[phone,setPhone]=useState("")
   
   // Check if current user is the starter
-  const isCurrentUserStarter = currentUserId === pledge.starter_id;
+  const isCurrentUserStarter = currentUser?.id === pledge.starter_id;
   
   const existingSelection = pledge.selection;
 
-
-    useEffect(() => {
-      try {
-        const userString = localStorage.getItem("user");
-        if (userString) {
-          const user = JSON.parse(userString);
-            setUsername(user.username || "");
-          setPhone(user.phone || "");
-          setUserId(user.id || "");
-          console.log(username,phone)
-        }
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-      }
-    }, []);
-  
-
-
-
-
-  
   const getOppositeOptions = () => {
     const options = [];
     if (existingSelection !== "home_team") options.push({ 
@@ -300,126 +427,206 @@ function P2PBettingCard({ pledge, teamAvatars, currentUserId }: { pledge: Pledge
   };
 
   const oppositeOptions = getOppositeOptions();
-const sendBetAgainst = async () => {
-  if (!betAgainstAmount || !betAgainstOption) {
-    toast({
-      title: "Incomplete Bet",
-      description: "Select your prediction and enter stake",
-      variant: "destructive"
-    });
-    return;
-  }
 
-  // Get user info from localStorage
-  const token = localStorage.getItem("user");
-  if (!token) {
-    toast({
-      title: "Authentication Required",
-      description: "Please login to place a bet",
-      variant: "destructive"
-    });
-    return;
-  }
-
-  try {
-    const user = JSON.parse(token);
-    
-    // Use user.id (match what AddPost uses)
-    const user_id = user.id;
-    const user_name = user.username || "User";
-
-    if (!user_id) {
+  const acceptBet = async () => {
+    if (!currentUser) {
       toast({
-        title: "User Info Missing",
-        description: "Please complete your profile",
+        title: "Authentication Required",
+        description: "Please login to place a bet",
         variant: "destructive"
       });
       return;
     }
 
-    // Determine the team based on selection
-    let finisherTeam = "";
-    if (pledge.selection === "home_team") {
-      finisherTeam = pledge.away_team;
-    } else if (pledge.selection === "away_team") {
-      finisherTeam = pledge.home_team;
-    } else if (betAgainstOption === "draw") {
-      finisherTeam = "draw";
+    if (!betAgainstAmount || !betAgainstOption) {
+      toast({
+        title: "Incomplete Bet",
+        description: "Select your prediction and enter stake",
+        variant: "destructive"
+      });
+      return;
     }
 
-    // ⚠️ IMPORTANT: You're creating a NEW bet, not accepting an existing one
-    // You need to send the COMPLETE bet data with starter info from pledge
-    const createBetData = {
-      // Starter info (from the pledge creator)
-      starter_id: pledge.starter_id,  // This comes from pledge data
-      starter_username: pledge.username,  // From pledge
-      starter_team: pledge.selection === "home_team" ? pledge.home_team : 
-                    pledge.selection === "away_team" ? pledge.away_team : "draw",
-      starter_amount: pledge.amount,
-      
-      // Finisher info (current user accepting the bet)
-      finisher_id: userId,
-      finisher_username: username,
-      finisher_team: finisherTeam,
-      finisher_amount: Number(betAgainstAmount),
-      
-      // Match details from pledge
-      home_team: pledge.home_team,
-      away_team: pledge.away_team,
-      sport_type: pledge.sport_type || "football", // Default if not specified
-      
-      // Optional field
-      expires_in_hours: 24
-    };
-
-    console.log("Creating new bet with data:", createBetData);
-
-    const response = await fetch(`https://fanclash-api.onrender.com/api/bets`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(createBetData),
-    });
-
-    console.log("Response status:", response.status);
+    const betAmount = Number(betAgainstAmount);
     
-    if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const errorText = await response.text();
-        errorMessage = errorText ? `${errorMessage}: ${errorText}` : errorMessage;
-      } catch (e) {
-        // Couldn't read error text
+    // Validate bet amount
+    if (betAmount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid bet amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if user has enough balance
+    if (betAmount > currentUser.balance) {
+      toast({
+        title: "Insufficient Balance",
+        description: `You need Ksh ${betAmount} but have Ksh ${currentUser.balance}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Show loading
+      toast({
+        title: "Processing Bet...",
+        description: "Deducting amount and creating bet",
+        className: "bg-blue-500/20 border-blue-500 text-blue-500"
+      });
+
+      // 1. First deduct from user's balance
+      const newBalance = currentUser.balance - betAmount;
+      
+      const updateBalanceResponse = await fetch(`https://fanclash-api.onrender.com/update-balance`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          balance: newBalance
+        }),
+      });
+
+      if (!updateBalanceResponse.ok) {
+        const errorText = await updateBalanceResponse.text();
+        throw new Error(`Balance update failed: ${errorText}`);
       }
-      throw new Error(errorMessage);
+
+      // 2. Update local state immediately
+      const updatedUser = {
+        ...currentUser,
+        balance: newBalance
+      };
+      
+      // Update localStorage
+      const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+      localStorage.setItem("userProfile", JSON.stringify({
+        ...userProfile,
+        balance: newBalance
+      }));
+      
+      // Trigger parent to refresh user data
+      refreshUserData();
+
+      // 3. Now create the bet match
+      let finisherTeam = "";
+      if (betAgainstOption === "home_team") {
+        finisherTeam = pledge.home_team;
+      } else if (betAgainstOption === "away_team") {
+        finisherTeam = pledge.away_team;
+      } else {
+        finisherTeam = "draw";
+      }
+
+      const betData = {
+        // Starter info (from pledge)
+        starter_id: pledge.starter_id,
+        starter_username: pledge.username,
+        starter_selection: pledge.selection,
+        starter_amount: pledge.amount,
+        starter_team: pledge.selection === "home_team" ? pledge.home_team : 
+                     pledge.selection === "away_team" ? pledge.away_team : "draw",
+        
+        // Finisher info (current user)
+        finisher_id: currentUser.id,
+        finisher_username: currentUser.username,
+        finisher_selection: betAgainstOption,
+        finisher_amount: betAmount,
+        finisher_team: finisherTeam,
+        
+        // Match details
+        home_team: pledge.home_team,
+        away_team: pledge.away_team,
+        
+        // Bet details
+        total_pot: pledge.amount + betAmount,
+        status: "matched",
+        
+        // Odds
+        odds: pledge.odds || {
+          home_win: "2.00",
+          away_win: "2.00",
+          draw: "3.50"
+        }
+      };
+
+      // 4. Create the bet on backend
+      const createBetResponse = await fetch(`https://fanclash-api.onrender.com/api/bets`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(betData),
+      });
+
+      if (!createBetResponse.ok) {
+        const errorText = await createBetResponse.text();
+        console.error("Bet creation failed:", errorText);
+        
+        // Refund the balance if bet creation failed
+        await fetch(`https://fanclash-api.onrender.com/update-balance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUser.id,
+            balance: currentUser.balance // Refund original balance
+          }),
+        });
+        
+        // Refresh user data to show refund
+        refreshUserData();
+        
+        throw new Error(`Bet creation failed: ${errorText}`);
+      }
+
+      const betResult = await createBetResponse.json();
+      console.log("Bet created successfully:", betResult);
+
+      // 5. Update the pledge status to matched
+      if (pledge._id) {
+        try {
+          await fetch(`https://fanclash-api.onrender.com/api/pledges/${pledge._id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'matched' }),
+          });
+        } catch (pledgeError) {
+          console.warn("Could not update pledge status:", pledgeError);
+        }
+      }
+
+      // 6. Show success message
+      toast({
+        title: "✅ Bet Placed Successfully!",
+        description: `Ksh ${betAmount} deducted. Bet matched with ${pledge.username}`,
+        className: "bg-emerald-500/20 border-emerald-500 text-emerald-500",
+        duration: 5000
+      });
+
+      // 7. Reset form
+      setBetAgainstAmount("");
+      setBetAgainstOption("");
+      setIsBetting(false);
+
+      // 8. Reload page after delay to show updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+
+    } catch (error: any) {
+      console.error("Error placing bet:", error);
+      toast({
+        title: "Bet Placement Failed",
+        description: error.message || "Unable to place bet. Please try again.",
+        variant: "destructive",
+        duration: 5000
+      });
     }
-
-    const result = await response.json();
-    console.log("Success response:", result);
-
-    toast({
-      title: "⚔️ Bet Created Successfully!",
-      description: `You've created a new bet against ${pledge.username}`,
-      className: "bg-emerald-500/20 border-emerald-500 text-emerald-500"
-    });
-    
-    setBetAgainstAmount("");
-    setBetAgainstOption("");
-    setIsBetting(false);
-    
-    // Optionally refresh the pledges list
-    // fetchPledges();
-    
-  } catch (error: any) {
-    console.error("Bet creation error:", error);
-    toast({
-      title: "Bet Creation Failed",
-      description: error.message || "Unable to create bet",
-      variant: "destructive"
-    });
-  }
-};
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -453,7 +660,7 @@ const sendBetAgainst = async () => {
             </div>
             <div className="flex items-center space-x-3 mt-1">
               <span className="text-emerald-400 text-xs bg-emerald-500/10 px-2 py-0.5 rounded-full">
-               futa
+                {pledge.fan}
               </span>
               <span className="text-gray-600 text-xs">·</span>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -497,14 +704,14 @@ const sendBetAgainst = async () => {
             {/* Home Team Selection Logic */}
             {pledge.selection === "home_team" ? (
               <div>
-                <p className="text-sm text-red-400">{pledge.home_team}</p>
-                <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
-                <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
+                <p className="text-sm text-emerald-400 font-semibold">{pledge.home_team}</p>
+                <p className="text-emerald-300 text-sm">ksh. {pledge.amount.toLocaleString()} </p>
+                <p className="text-emerald-300 text-sm">{pledge.odds?.home_win} odds</p>
               </div>
             ) : (
               <div>
-                <p className="text-sm">{pledge.home_team}</p>
-                <p className="text-emerald-200 text-sm">{pledge.odds?.home_win} odds</p>
+                <p className="text-sm text-gray-300">{pledge.home_team}</p>
+                <p className="text-emerald-300 text-sm">{pledge.odds?.home_win} odds</p>
               </div>
             )}
           </div>
@@ -537,14 +744,14 @@ const sendBetAgainst = async () => {
             {/* Away Team Selection Logic */}
             {pledge.selection === "away_team" ? (
               <div>
-                <p className="text-sm text-red-400">{pledge.away_team}</p>
-                <p className="text-emerald-200 text-sm">ksh. {pledge.amount} </p>
-                <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
+                <p className="text-sm text-emerald-400 font-semibold">{pledge.away_team}</p>
+                <p className="text-emerald-300 text-sm">ksh. {pledge.amount.toLocaleString()} </p>
+                <p className="text-emerald-300 text-sm">{pledge.odds?.away_win} odds</p>
               </div>
             ) : (
               <div>
-                <p className="text-sm">{pledge.away_team}</p>
-                <p className="text-emerald-200 text-sm">{pledge.odds?.away_win} odds</p>
+                <p className="text-sm text-gray-300">{pledge.away_team}</p>
+                <p className="text-emerald-300 text-sm">{pledge.odds?.away_win} odds</p>
               </div>
             )}
           </div>
@@ -559,18 +766,18 @@ const sendBetAgainst = async () => {
               </div>
               <div>
                 <p className="text-gray-500 text-xs">stake</p>
-                <p className="text-white">ksh. {pledge.amount}</p>
+                <p className="text-white">ksh. {pledge.amount.toLocaleString()}</p>
               </div>
             </div>
             <div className="text-right">
               <p className="text-gray-500 text-xs">pot size</p>
-              <p className="text-emerald-400">ksh. {(pledge.potential_payout || 0).toFixed(2)}</p>
+              <p className="text-emerald-400">ksh. {(pledge.potential_payout || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
         </div>
 
-        {/* ✅ Hide Accept Bet button if current user is the starter */}
-        {!isCurrentUserStarter && pledge.status === 'active' ? (
+        {/* Hide Accept Bet button if current user is the starter or doesn't exist */}
+        {currentUser && !isCurrentUserStarter && pledge.status === 'active' ? (
           <>
             {!isBetting ? (
               <Button
@@ -610,7 +817,7 @@ const sendBetAgainst = async () => {
 
                 {/* Stake Input */}
                 <div>
-                  <p className="text-white font-bold mb-3 text-sm">ENTER YOUR STAKE (₿)</p>
+                  <p className="text-white font-bold mb-3 text-sm">ENTER YOUR STAKE (Ksh)</p>
                   <div className="flex space-x-2">
                     <input
                       type="number"
@@ -618,6 +825,8 @@ const sendBetAgainst = async () => {
                       onChange={(e) => setBetAgainstAmount(e.target.value)}
                       placeholder="Enter amount..."
                       className="flex-1 bg-gray-900 border border-gray-800 rounded-full px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                      min="1"
+                      max={currentUser?.balance || 0}
                     />
                     <Button
                       onClick={() => setBetAgainstAmount(pledge.amount.toString())}
@@ -637,18 +846,25 @@ const sendBetAgainst = async () => {
                         onClick={() => setBetAgainstAmount(amount)}
                         className="flex-1 rounded-full border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500 text-xs py-2 bg-gray-900/50"
                       >
-                        ₿{amount}
+                        Ksh{amount}
                       </Button>
                     ))}
                   </div>
+                  
+                  {/* Balance Info */}
+                  {currentUser && (
+                    <div className="mt-2 text-xs text-gray-400">
+                      Available: Ksh {currentUser.balance.toLocaleString()}
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
                 <div className="flex space-x-3 pt-2">
                   <Button
-                    onClick={sendBetAgainst}
+                    onClick={acceptBet}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full py-3 shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
-                    disabled={!betAgainstOption || !betAgainstAmount}
+                    disabled={!betAgainstOption || !betAgainstAmount || !currentUser}
                   >
                     <ShieldCheck className="w-5 h-5 mr-2" />
                     PLACE BET
@@ -667,7 +883,12 @@ const sendBetAgainst = async () => {
           // Show message if user is the starter or bet is not active
           <div className="text-center p-4 border border-gray-800/50 rounded-lg">
             <div className="flex items-center justify-center space-x-2 text-gray-400">
-              {isCurrentUserStarter ? (
+              {!currentUser ? (
+                <>
+                  <AlertCircle className="w-5 h-5" />
+                  <span className="text-sm">Please login to accept bets</span>
+                </>
+              ) : isCurrentUserStarter ? (
                 <>
                   <Eye className="w-5 h-5" />
                   <span className="text-sm">This is your bet - waiting for challengers</span>
@@ -685,7 +906,7 @@ const sendBetAgainst = async () => {
         )}
       </div>
 
-      {/* Action Buttons - Twitter Style */}
+      {/* Action Buttons */}
       <div className="flex items-center justify-between border-t border-gray-800/50 pt-4">
         <Button
           variant="ghost"

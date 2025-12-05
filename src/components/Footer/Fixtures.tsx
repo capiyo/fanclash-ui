@@ -2,7 +2,7 @@ import {
   MapPin, Clock, DollarSign, Building2, Heart, MessageCircle, 
   Share2, Zap, Users, Calendar, Trophy, Sparkles, UserPlus, 
   Eye, TrendingUp, Wallet, Bell, Target, Crown, ShieldCheck,
-  Coins, Award, BarChart3, Lock, Gavel, Percent, Timer 
+  Coins, Award, BarChart3, Lock, Gavel, Percent, Timer, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -30,19 +30,28 @@ interface PledgeData {
   fan: string;
   home_team: string;
   away_team: string;
-  starter_id: string; // This is already included
+  starter_id: string;
+}
+
+interface UserDataFromBackend {
+  user_id: string;
+  username: string;
+  phone: string;
+  balance: number;
+  nickname?: string;
+  club_fan?: string;
+  country_fan?: string;
+  number_of_bets?: number;
 }
 
 const Fixtures = () => {
-  const [myId, setMyId] = useState("");
-  const [myName, setMyname] = useState("");
-  const [phone, setPhone] = useState("");
+  const [userData, setUserData] = useState<UserDataFromBackend | null>(null);
   const [fixtures, setFixtures] = useState<FixtureProps[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLoading, setUserLoading] = useState(true);
   const [error, setError] = useState("");
-  const [userBalance, setUserBalance] = useState(1250.75);
   const API_BASE_URL = 'https://fanclash-api.onrender.com/api/games';
-  const[starter_id,setStaterId]=useState("")
+  const API_PROFILE_URL = 'https://fanclash-api.onrender.com/api/profile';
 
   const { toast } = useToast();
 
@@ -61,20 +70,111 @@ const Fixtures = () => {
     { name: "Mike", avatar: teamAvatars.user3, bet: "₿75", team: "DRAW", won: true }
   ];
 
-  useEffect(() => {
-    const token = localStorage.getItem("user");
-    if (token) {
-      try {
-        const user = JSON.parse(token);
-        if (user) {
-          setMyId(user.id || user._id || "");
-          setMyname(user.username || user.userName || "");
-          setPhone(user.phone || "");
+  // Fetch user from backend using phone number
+  const fetchUserFromBackend = async (): Promise<UserDataFromBackend | null> => {
+    try {
+      // First, get phone from localStorage
+      const saved = localStorage.getItem('userProfile');
+      let localPhone = '';
+      
+      if (saved) {
+        try {
+          const localData = JSON.parse(saved);
+          localPhone = localData.phone || '';
+        } catch (error) {
+          console.log('Error parsing local data:', error);
         }
-      } catch (err) {
-        console.error("Error parsing user token:", err);
       }
+      
+      if (!localPhone) return null;
+      
+      // Clean phone and try different formats
+      const cleanPhone = localPhone.replace(/\D/g, '');
+      
+      const phoneFormats = [];
+      phoneFormats.push(cleanPhone);
+      
+      if (cleanPhone.startsWith('0')) {
+        phoneFormats.push(cleanPhone.substring(1));
+      }
+      
+      if (cleanPhone.length === 9) {
+        phoneFormats.push('254' + cleanPhone);
+      } else if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
+        phoneFormats.push('254' + cleanPhone.substring(1));
+      }
+      
+      console.log('Fetching user from backend with phone formats:', phoneFormats);
+      
+      // Try each phone format
+      for (const phoneFormat of phoneFormats) {
+        try {
+          const response = await fetch(`${API_PROFILE_URL}/profile/phone/${phoneFormat}`);
+          
+          if (response.ok) {
+            const backendUser = await response.json();
+            console.log('✅ Found user in backend:', backendUser);
+            
+            const userData: UserDataFromBackend = {
+              user_id: backendUser.user_id,
+              username: backendUser.username || '',
+              phone: localPhone, // Keep local format
+              balance: backendUser.balance || 0,
+              nickname: backendUser.nickname || '',
+              club_fan: backendUser.club_fan || '',
+              country_fan: backendUser.country_fan || '',
+              number_of_bets: backendUser.number_of_bets || 0
+            };
+            
+            // Update localStorage with backend data
+            localStorage.setItem('userProfile', JSON.stringify(userData));
+            return userData;
+          }
+        } catch (error) {
+          console.log(`Phone format ${phoneFormat} not found:`, error);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching user from backend:', error);
+      return null;
     }
+  };
+
+  useEffect(() => {
+    // Load user from backend first
+    const loadUser = async () => {
+      setUserLoading(true);
+      try {
+        const backendUser = await fetchUserFromBackend();
+        setUserData(backendUser);
+        
+        // If no user found, check if we have minimal data in localStorage
+        if (!backendUser) {
+          const saved = localStorage.getItem('userProfile');
+          if (saved) {
+            try {
+              const localData = JSON.parse(saved);
+              setUserData({
+                user_id: localData.user_id || '',
+                username: localData.username || '',
+                phone: localData.phone || '',
+                balance: localData.balance || 0
+              });
+            } catch (error) {
+              console.log('No valid user data found');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user:', error);
+      } finally {
+        setUserLoading(false);
+      }
+    };
+    
+    loadUser();
   }, []);
 
   useEffect(() => {
@@ -117,19 +217,45 @@ const Fixtures = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white font-sans">
-      {/* Twitter Header with Green Accents */}
-      
-      
+      {/* User Balance Display */}
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="flex items-center justify-between mb-4 p-4 bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800/50">
+          <div className="flex items-center space-x-3">
+            <div className="bg-emerald-500/10 p-2 rounded-lg">
+              <Wallet className="w-5 h-5 text-emerald-500" />
+            </div>
+            <div>
+              <div className="text-sm text-gray-400">Available Balance</div>
+              {userLoading ? (
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
+                  <span className="text-emerald-400 text-sm">Loading...</span>
+                </div>
+              ) : (
+                <div className="text-emerald-400 font-bold text-lg">
+                  Ksh {userData?.balance?.toLocaleString() || '0.00'}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {userData?.username && (
+            <div className="text-right">
+              <div className="text-sm text-gray-400">Welcome back</div>
+              <div className="text-white font-medium">{userData.username}</div>
+            </div>
+          )}
+        </div>
+      </div>
 
-      {/* Main Feed */}
-      <div className="max-w-2xl mx-auto">
-        {/* Post New Bet Card */}
-        <div className="border-b border-gray-800 border-opacity-50 p-4 bg-gray-900/20 backdrop-blur-sm">
+      {/* Post New Bet Card */}
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="border-b border-gray-800 border-opacity-50 p-4 bg-gray-900/20 backdrop-blur-sm rounded-xl">
           <div className="flex space-x-4">
             <Avatar className="w-12 h-12 border border-gray-800 ring-1 ring-gray-700/50">
               <AvatarImage src={teamAvatars.user1} />
               <AvatarFallback className="bg-gradient-to-br from-gray-900 to-gray-800">
-                You
+                {userData?.username?.substring(0, 2).toUpperCase() || 'Yo'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
@@ -157,8 +283,10 @@ const Fixtures = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Fixtures Feed */}
+      {/* Fixtures Feed */}
+      <div className="max-w-2xl mx-auto">
         <div className="divide-y divide-gray-800/50">
           {fixtures.map((fixture, index) => (
             <div key={index} className="hover:bg-gray-900/30 transition-colors duration-200">
@@ -166,7 +294,8 @@ const Fixtures = () => {
                 fixture={fixture} 
                 teamAvatars={teamAvatars} 
                 mockBettors={mockBettors}
-                userData={{ id: myId, name: myName, phone: phone }}
+                userData={userData}
+                setUserData={setUserData}
               />
             </div>
           ))}
@@ -196,7 +325,7 @@ const Fixtures = () => {
         )}
       </div>
 
-      {/* Bottom Navigation - Twitter style with green */}
+      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-sm border-t border-gray-800/50">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex justify-around items-center">
@@ -250,16 +379,18 @@ interface MatchCardProps {
   fixture: FixtureProps;
   teamAvatars: any;
   mockBettors: any[];
-  userData: { id: string; name: string; phone: string };
+  userData: UserDataFromBackend | null;
+  setUserData: React.Dispatch<React.SetStateAction<UserDataFromBackend | null>>;
 }
 
-function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardProps) {
+function MatchCard({ fixture, teamAvatars, mockBettors, userData, setUserData }: MatchCardProps) {
   const [selectedBet, setSelectedBet] = useState("");
   const [betAmount, setBetAmount] = useState("");
   const [isLiked, setIsLiked] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 100) + 50);
   const [commentCount, setCommentCount] = useState(Math.floor(Math.random() * 30) + 10);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   const handleBetPlacement = async () => {
@@ -272,15 +403,39 @@ function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardPro
       return;
     }
 
+    const betAmountNum = Number(betAmount);
+    
+    // Validate bet amount
+    if (betAmountNum <= 0 || isNaN(betAmountNum)) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid bet amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      if (!userData.id || !userData.name) {
+      if (!userData?.user_id || !userData?.username) {
         toast({
           title: "Authentication Error",
-          description: "Please login first",
+          description: "Please complete your profile first",
           variant: "destructive"
         });
         return;
       }
+
+      // Check if user has sufficient balance
+      if (userData.balance < betAmountNum) {
+        toast({
+          title: "Insufficient Balance",
+          description: `You need Ksh ${betAmountNum} but only have Ksh ${userData.balance}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setIsProcessing(true);
 
       // Map frontend selection to backend format
       let selection: string;
@@ -298,21 +453,22 @@ function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardPro
           selection = "draw";
       }
 
-      // Prepare pledge data - INCLUDING STARTER_ID
+      // Prepare pledge data
       const pledgeData: PledgeData = {
-        username: userData.name,
+        username: userData.username,
         phone: userData.phone,
         selection: selection,
-        amount: parseFloat(betAmount),
+        amount: betAmountNum,
         fan: "user",
         home_team: fixture.home_team,
         away_team: fixture.away_team,
-        starter_id: userData.id, // This is already included in your interface
+        starter_id: userData.user_id, // Use backend user_id
       };
 
-      console.log("📤 Sending bet to API:", pledgeData);
+      console.log("📤 Placing bet with data:", pledgeData);
 
-      const response = await fetch(`https://fanclash-api.onrender.com/api/pledges`, {
+      // 1. First, place the bet
+      const betResponse = await fetch(`https://fanclash-api.onrender.com/api/pledges`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,25 +476,60 @@ function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardPro
         body: JSON.stringify(pledgeData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      if (!betResponse.ok) {
+        const errorData = await betResponse.json();
+        throw new Error(errorData.error || `HTTP error! status: ${betResponse.status}`);
       }
 
-      const result = await response.json();
-      console.log("✅ Bet placed successfully:", result);
+      const betResult = await betResponse.json();
+      console.log("✅ Bet placed successfully:", betResult);
 
-      const selectedTeam = selectedBet === "homeTeam" ? fixture.home_team : 
-                          selectedBet === "awayTeam" ? fixture.away_team : "Draw";
+      // 2. Calculate new balance
+      const newBalance = userData.balance - betAmountNum;
       
-      toast({
-        title: "🎯 Bet Placed!",
-        description: `₿${betAmount} on ${selectedTeam}`,
-        className: "bg-emerald-500/20 border-emerald-500 text-emerald-500"
+      // 3. Update balance on backend
+      const updateResponse = await fetch(`https://fanclash-api.onrender.com/api/profile/update-balance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userData.user_id,
+          balance: newBalance
+        }),
       });
-      
-      setBetAmount("");
-      setSelectedBet("");
+
+      if (updateResponse.ok) {
+        const updatedUser = await updateResponse.json();
+        console.log("✅ Balance updated on backend:", updatedUser);
+        
+        // Update local state and localStorage
+        const updatedUserData = {
+          ...userData,
+          balance: updatedUser.balance || newBalance
+        };
+        
+        setUserData(updatedUserData);
+        localStorage.setItem('userProfile', JSON.stringify(updatedUserData));
+        
+        // Show success message
+        const selectedTeam = selectedBet === "homeTeam" ? fixture.home_team : 
+                            selectedBet === "awayTeam" ? fixture.away_team : "Draw";
+        
+        toast({
+          title: "🎯 Bet Placed Successfully!",
+          description: `Ksh ${betAmount} on ${selectedTeam}. New balance: Ksh ${updatedUserData.balance.toLocaleString()}`,
+          className: "bg-emerald-500/20 border-emerald-500 text-emerald-500",
+          duration: 4000
+        });
+        
+        // Reset form
+        setBetAmount("");
+        setSelectedBet("");
+      } else {
+        throw new Error("Failed to update balance after bet placement");
+      }
+
     } catch (error) {
       console.error("❌ Error placing bet:", error);
       toast({
@@ -346,6 +537,8 @@ function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardPro
         description: error instanceof Error ? error.message : "Unable to place bet",
         variant: "destructive"
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -505,16 +698,36 @@ function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardPro
                   onChange={(e) => setBetAmount(e.target.value)}
                   placeholder="Enter stake amount..."
                   className="w-full bg-gray-900 border border-gray-800 rounded-full px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                  disabled={isProcessing}
                 />
               </div>
               <Button
                 onClick={handleBetPlacement}
                 className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-6 font-bold shadow-lg shadow-emerald-500/20 border border-emerald-500/30"
-                disabled={!betAmount}
+                disabled={!betAmount || isProcessing}
               >
-                Place Bet
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Place Bet'
+                )}
               </Button>
             </div>
+            
+            {/* Current Balance Display */}
+            {userData && (
+              <div className="mt-3 text-sm text-gray-400 flex items-center justify-between">
+                <span>Available: Ksh {userData.balance.toLocaleString()}</span>
+                {betAmount && (
+                  <span className={Number(betAmount) > userData.balance ? "text-red-400" : "text-emerald-400"}>
+                    After bet: Ksh {(userData.balance - Number(betAmount)).toLocaleString()}
+                  </span>
+                )}
+              </div>
+            )}
             
             {/* Quick Stake Buttons */}
             <div className="flex space-x-2 mt-3">
@@ -525,6 +738,7 @@ function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardPro
                   size="sm"
                   onClick={() => setBetAmount(amount)}
                   className="flex-1 rounded-full border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500 text-xs py-2 bg-gray-900/50"
+                  disabled={isProcessing}
                 >
                   ₿{amount}
                 </Button>
@@ -562,7 +776,7 @@ function MatchCard({ fixture, teamAvatars, mockBettors, userData }: MatchCardPro
           </div>
         </div>
 
-        {/* Action Buttons - Twitter Style */}
+        {/* Action Buttons */}
         <div className="flex items-center justify-between border-t border-gray-800/50 pt-4">
           <Button
             variant="ghost"

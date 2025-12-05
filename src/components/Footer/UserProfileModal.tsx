@@ -18,7 +18,7 @@ import {
   Wallet,
   Coins,
   Shield,
-  ChevronRight
+  RefreshCw
 } from 'lucide-react';
 
 interface UserProfileModalProps {
@@ -29,11 +29,12 @@ interface UserProfileModalProps {
 interface UserData {
   username: string;
   phone: string;
-  clubFan: string;
+  club_fan: string;
   nickname: string;
-  countryFan: string;
+  country_fan: string;
   balance: number;
-  numberOfBets: number;
+  number_of_bets: number;
+  user_id: string;
   id?: string;
 }
 
@@ -46,37 +47,28 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
   const [depositPhone, setDepositPhone] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
   const [recentTransaction, setRecentTransaction] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Initialize user data
-  const [userData, setUserData] = useState<UserData>(() => {
-    const saved = localStorage.getItem('userProfile');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // Return default if parsing fails
-      }
-    }
-    return {
-      username: '',
-      phone: '',
-      clubFan: '',
-      nickname: '',
-      countryFan: '',
-      balance: 0,
-      numberOfBets: 0,
-      id: ''
-    };
+  // Initialize empty user data - will be loaded from backend
+  const [userData, setUserData] = useState<UserData>({
+    username: '',
+    phone: '',
+    club_fan: '',
+    nickname: '',
+    country_fan: '',
+    balance: 0,
+    number_of_bets: 0,
+    user_id: ''
   });
 
-  // Load user data when modal opens
+  // Load user data from BACKEND when modal opens
   useEffect(() => {
     if (isOpen) {
-      loadUserData();
+      loadUserFromBackend();
     }
   }, [isOpen]);
 
-  // Close modal when clicking outside or pressing ESC
+  // Close modal handlers
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
@@ -101,30 +93,9 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
       document.removeEventListener('keydown', handleEscKey);
       document.body.style.overflow = 'auto';
     };
-  }, [isOpen]);
+  }, [isOpen, currentPage, userData]);
 
-  // Load user data
-  const loadUserData = () => {
-    try {
-      const saved = localStorage.getItem('userProfile');
-      if (saved) {
-        const data = JSON.parse(saved);
-        setUserData(data);
-        setDepositPhone(data.phone || '');
-        
-        // If no user data, go to edit page
-        const hasData = data.username?.trim() || data.phone?.trim();
-        setCurrentPage(hasData ? 'view' : 'edit');
-      } else {
-        setCurrentPage('edit');
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      setCurrentPage('edit');
-    }
-  };
-
-  // Toast helpers with emerald theme
+  // Toast helpers
   const showError = (message: string) => {
     toast.error(message, {
       duration: 2000,
@@ -153,9 +124,10 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
     });
   };
 
-  const showLoading = (message: string) => {
+  const showLoading = (message: string, id: string = 'loading') => {
     toast.loading(message, {
-      duration: 3000,
+      id,
+      duration: 5000,
       position: 'top-center',
       style: {
         background: 'rgba(16, 185, 129, 0.95)',
@@ -167,7 +139,239 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
     });
   };
 
-  // Save profile
+  // Find user by phone in backend
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  const findUserByPhone = async (phone: string): Promise<UserData | null> => {
+  try {
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Try different phone formats
+    const phoneFormats = [];
+    
+    // 1. Clean phone as-is (could be 0704306867 or 704306867)
+    phoneFormats.push(cleanPhone);
+    
+    // 2. If it starts with 0, try without 0 (0704306867 -> 704306867)
+    if (cleanPhone.startsWith('0')) {
+      phoneFormats.push(cleanPhone.substring(1));
+    }
+    
+    // 3. Try with 254 prefix (704306867 -> 254704306867)
+    if (cleanPhone.length === 9) {
+      phoneFormats.push('254' + cleanPhone);
+    } else if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
+      phoneFormats.push('254' + cleanPhone.substring(1));
+    }
+    
+    console.log('Searching for phone formats:', phoneFormats);
+    
+    // Try each format
+    for (const phoneFormat of phoneFormats) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/profile/profile/phone/${phoneFormat}`);
+        
+        if (response.ok) {
+          const backendUser = await response.json();
+          console.log(`✅ Found user with phone format ${phoneFormat}:`, backendUser);
+          
+          return {
+            user_id: backendUser.user_id,
+            username: backendUser.username || '',
+            phone: phone, // Keep the original local format
+            nickname: backendUser.nickname || '',
+            club_fan: backendUser.club_fan || '',
+            country_fan: backendUser.country_fan || '',
+            balance: backendUser.balance || 0,
+            number_of_bets: backendUser.number_of_bets || 0
+          };
+        }
+      } catch (error) {
+        console.log(`Format ${phoneFormat} not found:`, error);
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.log('Error finding user by phone:', error);
+    return null;
+  }
+};
+
+
+const formatPhoneTo254 = (phone: string): string => {
+  const clean = phone.replace(/\D/g, '');
+  
+  // Already in 254 format
+  if (clean.length === 12 && clean.startsWith('254')) {
+    return clean;
+  }
+  
+  // Convert 0704306867 or 704306867 to 254704306867
+  if (clean.length === 10 && clean.startsWith('0')) {
+    return '254' + clean.substring(1);
+  }
+  
+  if (clean.length === 9) {
+    return '254' + clean;
+  }
+  
+  return clean;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // Load user from backend (primary source of truth)
+  const loadUserFromBackend = async () => {
+    try {
+      setIsSyncing(true);
+      
+      // 1. Check if we have phone in localStorage
+      const saved = localStorage.getItem('userProfile');
+      let localPhone = '';
+      
+      if (saved) {
+        try {
+          const localData = JSON.parse(saved);
+          localPhone = localData.phone || '';
+        } catch (error) {
+          console.log('Error parsing local data:', error);
+        }
+      }
+      
+      // 2. Try to find user by phone in backend
+      if (localPhone) {
+        const backendUser = await findUserByPhone(localPhone);
+        
+        if (backendUser) {
+          // User found in backend - use backend data
+          setUserData(backendUser);
+          setDepositPhone(backendUser.phone);
+          localStorage.setItem('userProfile', JSON.stringify(backendUser));
+          setCurrentPage('view');
+          setIsSyncing(false);
+          return;
+        }
+      }
+      
+      // 3. No user found in backend, check local storage
+      if (saved) {
+        try {
+          const localData = JSON.parse(saved);
+          setUserData(localData);
+          setDepositPhone(localData.phone || '');
+          
+          // Check if we have minimal data
+          const hasData = localData.username?.trim() || localData.phone?.trim();
+          setCurrentPage(hasData ? 'view' : 'edit');
+        } catch {
+          setCurrentPage('edit');
+        }
+      } else {
+        setCurrentPage('edit');
+      }
+      
+    } catch (error) {
+      console.error('Error loading user:', error);
+      setCurrentPage('edit');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Sync data from backend
+  const syncFromBackend = async (showToast: boolean = false) => {
+    if (!userData.phone) return;
+    
+    try {
+      setIsSyncing(true);
+      const backendUser = await findUserByPhone(userData.phone);
+      
+      if (backendUser) {
+        setUserData(backendUser);
+        localStorage.setItem('userProfile', JSON.stringify(backendUser));
+        
+        if (showToast) {
+          showSuccess('Synced with server!');
+        }
+      } else {
+        console.log('No data from backend');
+        if (showToast) {
+          showError('Failed to sync with server');
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing from backend:', error);
+      if (showToast) {
+        showError('Failed to sync with server');
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Save profile to backend
   const handleSave = async () => {
     if (!userData.username.trim() && !userData.phone.trim()) {
       showError('Please enter at least username or phone');
@@ -176,40 +380,95 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
 
     try {
       setIsProcessing(true);
-      showLoading('Saving profile...');
+      showLoading('Saving profile...', 'save-profile');
 
-      // Generate ID if needed
-      const userId = userData.id || `user_${Date.now()}`;
-      const updatedData = { ...userData, id: userId };
+      // Format phone for backend
+      const formatPhoneTo254 = (phone: string): string => {
+        const clean = phone.replace(/\D/g, '');
+        if (clean.length === 10 && clean.startsWith('0')) {
+          return '254' + clean.substring(1);
+        }
+        if (clean.length === 9) {
+          return '254' + clean;
+        }
+        return clean;
+      };
 
-      // Save to localStorage
-      localStorage.setItem('userProfile', JSON.stringify(updatedData));
-      setUserData(updatedData);
+      const formattedPhone = formatPhoneTo254(userData.phone);
+      
+      // Generate user ID
+      const userId = userData.user_id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Prepare profile data
+      const profileData = {
+        user_id: userId,
+        username: userData.username || "User",
+        phone: formattedPhone || "",
+        nickname: userData.nickname || "",
+        club_fan: userData.club_fan || "",
+        country_fan: userData.country_fan || "",
+        balance: userData.balance || 0,
+        number_of_bets: userData.number_of_bets || 0
+      };
 
-      // Save to server
-      const response = await fetch(`${API_BASE_URL}/api/profile/update`, {
+      console.log('Saving profile:', profileData);
+
+      // Save to backend
+      const response = await fetch(`${API_BASE_URL}/api/profile/create_profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          username: updatedData.username,
-          phone: updatedData.phone,
-          nickname: updatedData.nickname,
-          club_fan: updatedData.clubFan,
-          country_fan: updatedData.countryFan
-        }),
+        body: JSON.stringify(profileData),
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Profile saved:', result);
+        
+        // Update local data with backend response
+        const updatedData: UserData = {
+          ...userData,
+          user_id: result.user_id || userId,
+          balance: result.balance || userData.balance
+        };
+        
+        setUserData(updatedData);
+        localStorage.setItem('userProfile', JSON.stringify(updatedData));
+        
         showSuccess('Profile saved successfully!');
         setCurrentPage('view');
       } else {
-        throw new Error('Server error');
+        const errorText = await response.text();
+        console.error('Save failed, trying update...', errorText);
+        
+        // Try update if create failed (user might already exist)
+        const updateResponse = await fetch(`${API_BASE_URL}/api/profile/profiles/${userId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profileData),
+        });
+        
+        if (updateResponse.ok) {
+          const result = await updateResponse.json();
+          console.log('Profile updated:', result);
+          
+          const updatedData: UserData = {
+            ...userData,
+            user_id: result.user_id || userId,
+            balance: result.balance || userData.balance
+          };
+          
+          setUserData(updatedData);
+          localStorage.setItem('userProfile', JSON.stringify(updatedData));
+          
+          showSuccess('Profile updated successfully!');
+          setCurrentPage('view');
+        } else {
+          throw new Error('Failed to save profile');
+        }
       }
     } catch (error) {
       console.error('Save error:', error);
-      showError('Saved locally (server error)');
-      setCurrentPage('view');
+      showError('Failed to save profile');
     } finally {
       setIsProcessing(false);
     }
@@ -217,72 +476,153 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
 
   // Handle deposit
   const handleDeposit = async () => {
-    if (!depositAmount || Number(depositAmount) <= 0) {
+    if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
       showError('Enter valid amount');
       return;
     }
 
-    if (!depositPhone || depositPhone.replace(/\D/g, '').length !== 9) {
-      showError('Enter valid phone (7XXXXXXXX)');
+    if (!depositPhone || (depositPhone.replace(/\D/g, '').length !== 10 && depositPhone.replace(/\D/g, '').length !== 9)) {
+      showError('Enter valid phone (07XXXXXXXX or 7XXXXXXXX)');
       return;
     }
 
+    const amount = Number(depositAmount);
+    const phoneNumber = depositPhone;
+
     try {
       setIsProcessing(true);
-      showLoading('Processing payment...');
+      showLoading('Initiating M-Pesa payment...', 'deposit-processing');
 
-      const amount = Number(depositAmount);
-      const formattedPhone = '254' + depositPhone.replace(/\D/g, '');
+      // Get user ID - MUST come from backend
+      let userId = userData.user_id;
+      
+      if (!userId) {
+        // Try to find user by phone in backend
+        const backendUser = await findUserByPhone(phoneNumber);
+        if (backendUser) {
+          userId = backendUser.user_id;
+          // Update local data with backend user
+          setUserData(backendUser);
+          localStorage.setItem('userProfile', JSON.stringify(backendUser));
+        } else {
+          throw new Error('User not found. Please save your profile first.');
+        }
+      }
 
-      // Call payment API
-      const response = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
+      // Format phone for M-Pesa
+      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      let formattedPhone = '';
+      
+      if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
+        formattedPhone = '254' + cleanPhone.substring(1);
+      } else if (cleanPhone.length === 9) {
+        formattedPhone = '254' + cleanPhone;
+      } else if (cleanPhone.length === 12 && cleanPhone.startsWith('254')) {
+        formattedPhone = cleanPhone;
+      } else {
+        throw new Error('Invalid phone number format');
+      }
+
+      console.log('Processing deposit for user:', {
+        userId,
+        currentBalance: userData.balance,
+        depositAmount: amount,
+        phone: formattedPhone
+      });
+
+      // 1. M-Pesa STK Push
+      const stkResponse = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: formattedPhone,
-          amount: amount,
-          user_id: userData.id || 'guest'
+          phone_number: formattedPhone,
+          amount: amount.toString(),
+          account_reference: userId,
+          transaction_desc: "FanClash Deposit"
         }),
       });
 
-      const result = await response.json();
+      const stkResult = await stkResponse.json();
+      console.log('M-Pesa STK Response:', stkResult);
 
-      if (result.success) {
-        // Update balance
-        const newBalance = userData.balance + amount;
-        const updatedData = { 
+      if (!stkResponse.ok || !stkResult.success) {
+        throw new Error(stkResult.error || stkResult.message || 'M-Pesa payment failed');
+      }
+
+      // STK Push successful
+      toast.success('✓ Payment request sent! Check your phone', {
+        id: 'deposit-processing',
+        duration: 3000,
+        position: 'top-center',
+        style: {
+          background: 'rgba(16, 185, 129, 0.95)',
+          color: 'white',
+          fontSize: '12px',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(16, 185, 129, 0.3)'
+        },
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 2. Update phone locally if changed
+      if (userData.phone !== phoneNumber) {
+        const updatedLocalData = { 
           ...userData, 
-          balance: newBalance,
-          phone: depositPhone 
+          phone: phoneNumber,
         };
-        
-        localStorage.setItem('userProfile', JSON.stringify(updatedData));
-        setUserData(updatedData);
-        
-        // Update server balance
-        if (userData.id) {
-          await fetch(`${API_BASE_URL}/api/profile/update_balance`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: userData.id,
-              balance: newBalance
-            }),
-          });
-        }
+        localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
+        setUserData(updatedLocalData);
+      }
 
-        // Show success animation
+      // 3. Calculate new balance
+      const newBalance = userData.balance + amount;
+      console.log(`Updating balance: ${userData.balance} + ${amount} = ${newBalance}`);
+
+      // 4. Update balance on backend
+      showLoading('Processing payment...', 'update-balance');
+      
+      const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          balance: newBalance
+        }),
+      });
+
+      console.log('Update balance response status:', updateResponse.status);
+      
+      if (updateResponse.ok) {
+        const updatedUser = await updateResponse.json();
+        console.log('✅ Balance update successful:', updatedUser);
+        
+        // Update local data with backend response
+        const updatedLocalData = { 
+          ...userData, 
+          balance: updatedUser.balance || newBalance,
+        };
+        localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
+        setUserData(updatedLocalData);
+        
         setRecentTransaction(amount);
         setTimeout(() => setRecentTransaction(null), 3000);
-        
-        showSuccess(`+Ksh ${amount.toLocaleString()} added!`);
+        showSuccess(`Payment successful! +Ksh ${amount.toLocaleString()} added!`);
         setDepositAmount('');
         setCurrentPage('view');
       } else {
-        throw new Error(result.error || 'Payment failed');
+        const errorText = await updateResponse.text();
+        console.error('Balance update failed:', errorText);
+        throw new Error('Failed to update balance. Please try again.');
       }
+
     } catch (error) {
-      showError(error instanceof Error ? error.message : 'Payment failed');
+      console.error('Deposit error:', error);
+      toast.dismiss('deposit-processing');
+      toast.dismiss('update-balance');
+      showError(error instanceof Error ? error.message : 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -306,6 +646,18 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
 
   // Check if user has data
   const hasUserData = userData.username.trim() || userData.phone.trim();
+
+  // Helper to get display values
+  const getDisplayValue = (field: keyof UserData): string => {
+    const value = userData[field];
+    if (typeof value === 'string') {
+      return value || 'Not set';
+    }
+    if (typeof value === 'number') {
+      return value.toString();
+    }
+    return 'Not set';
+  };
 
   if (!isOpen) return null;
 
@@ -371,14 +723,26 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                   </div>
                 </div>
                 {currentPage === 'view' && hasUserData && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setCurrentPage('edit')}
-                    className="px-4 py-1.5 text-[13px] font-medium bg-emerald-500/[0.1] text-emerald-300 border border-emerald-500/[0.3] rounded-full hover:bg-emerald-500/[0.2] transition-all shadow-sm backdrop-blur-sm"
-                  >
-                    Edit
-                  </motion.button>
+                  <div className="flex items-center gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => syncFromBackend(true)}
+                      disabled={isSyncing}
+                      className="p-2 bg-emerald-500/[0.1] border border-emerald-500/[0.3] rounded-full hover:bg-emerald-500/[0.2] transition-all backdrop-blur-sm"
+                      title="Sync with server"
+                    >
+                      <RefreshCw className={`h-4 w-4 text-emerald-300 ${isSyncing ? 'animate-spin' : ''}`} />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setCurrentPage('edit')}
+                      className="px-4 py-1.5 text-[13px] font-medium bg-emerald-500/[0.1] text-emerald-300 border border-emerald-500/[0.3] rounded-full hover:bg-emerald-500/[0.2] transition-all shadow-sm backdrop-blur-sm"
+                    >
+                      Edit
+                    </motion.button>
+                  </div>
                 )}
               </div>
             </div>
@@ -408,6 +772,9 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                           <div className="text-[13px] text-white/[0.6] font-medium">Balance</div>
                           <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
                             Ksh {userData.balance.toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-emerald-400/70 mt-1">
+                            {isSyncing ? 'Syncing...' : 'Live from server'}
                           </div>
                         </div>
                         <motion.button
@@ -443,7 +810,7 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                         </div>
                         <div className="text-[13px] text-white/[0.6] font-medium">Total Bets</div>
                         <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
-                          {userData.numberOfBets}
+                          {userData.number_of_bets}
                         </div>
                       </motion.div>
                     </div>
@@ -451,14 +818,14 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                     {/* User Info */}
                     <div className="space-y-3">
                       {[
-                        { icon: User, label: 'Username', value: userData.username },
-                        { icon: Phone, label: 'Phone', value: userData.phone },
-                        { icon: Hash, label: 'Nickname', value: userData.nickname },
-                        { icon: Trophy, label: 'Club Fan', value: userData.clubFan },
-                        { icon: Globe, label: 'Country Fan', value: userData.countryFan },
+                        { icon: User, label: 'Username', field: 'username' },
+                        { icon: Phone, label: 'Phone', field: 'phone' },
+                        { icon: Hash, label: 'Nickname', field: 'nickname' },
+                        { icon: Trophy, label: 'Club Fan', field: 'club_fan' },
+                        { icon: Globe, label: 'Country Fan', field: 'country_fan' },
                       ].map((item, index) => (
                         <motion.div
-                          key={item.label}
+                          key={item.field}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.05 }}
@@ -472,13 +839,30 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                             <div className="flex-1">
                               <div className="text-[12px] text-white/[0.6] mb-0.5">{item.label}</div>
                               <div className="text-[15px] font-medium text-white">
-                                {item.value || <span className="text-white/[0.4]">Not set</span>}
+                                {getDisplayValue(item.field as keyof UserData)}
                               </div>
                             </div>
                           </div>
                         </motion.div>
                       ))}
                     </div>
+
+                    {/* Sync Status */}
+                    {userData.user_id && (
+                      <div className="mt-6 pt-4 border-t border-white/[0.1]">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                            <span className="text-xs text-white/[0.6]">
+                              {isSyncing ? 'Syncing...' : 'Connected to server'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-white/[0.5] font-mono">
+                            ID: {userData.user_id.substring(0, 8)}...
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 ) : currentPage === 'edit' ? (
                   <motion.div
@@ -493,8 +877,8 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                         { field: 'username', label: 'Username', placeholder: 'Enter username' },
                         { field: 'phone', label: 'Phone Number', placeholder: '0712345679', type: 'tel' },
                         { field: 'nickname', label: 'Nickname', placeholder: 'Your nickname' },
-                        { field: 'clubFan', label: 'Club Fan', placeholder: 'Manchester United' },
-                        { field: 'countryFan', label: 'Country Fan', placeholder: 'England' },
+                        { field: 'club_fan', label: 'Club Fan', placeholder: 'Manchester United' },
+                        { field: 'country_fan', label: 'Country Fan', placeholder: 'England' },
                       ].map((input, index) => (
                         <motion.div
                           key={input.field}
@@ -598,14 +982,19 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                           <input
                             type="tel"
                             value={depositPhone}
-                            onChange={(e) => setDepositPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              if (value.length <= 10) {
+                                setDepositPhone(value);
+                              }
+                            }}
                             className="w-full pl-12 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.15] rounded-xl text-white text-sm placeholder:text-white/[0.4] focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all backdrop-blur-sm"
-                            placeholder="712345678"
-                            maxLength={9}
+                            placeholder="0712345679 or 712345678"
+                            maxLength={10}
                           />
                         </div>
                         <p className="text-[11px] text-white/[0.5] mt-1 ml-1">
-                          Enter 9-digit number (7XXXXXXXX)
+                          Enter M-Pesa number (07XXXXXXXX or 7XXXXXXXX)
                         </p>
                       </div>
 
@@ -648,11 +1037,11 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
                       </div>
 
                       {/* Security Note */}
-                      <div className="p-3 bg-white/[0.05] border border-white/[0.1] rounded-lg backdrop-blur-sm">
+                      <div className="p-3 bg-white/[0.05] rounded-lg border border-white/[0.1] backdrop-blur-sm">
                         <div className="flex items-start gap-2">
                           <Shield className="h-4 w-4 text-emerald-300 mt-0.5 flex-shrink-0" />
                           <p className="text-[11px] text-white/[0.7]">
-                            Your payment is secured with end-to-end encryption.
+                            You'll receive an M-Pesa prompt on your phone. Please enter your PIN to complete the payment.
                           </p>
                         </div>
                       </div>
