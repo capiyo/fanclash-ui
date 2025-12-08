@@ -18,7 +18,11 @@ import {
   Wallet,
   Coins,
   Shield,
-  RefreshCw
+  RefreshCw,
+  ArrowUpRight,
+  ArrowDownLeft,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
 interface UserProfileModalProps {
@@ -41,15 +45,18 @@ interface UserData {
 export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
   const API_BASE_URL = 'https://fanclash-api.onrender.com';
   
-  const [currentPage, setCurrentPage] = useState<'view' | 'edit' | 'deposit'>('view');
+  const [currentPage, setCurrentPage] = useState<'view' | 'edit' | 'deposit' | 'withdraw'>('view');
   const [isProcessing, setIsProcessing] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositPhone, setDepositPhone] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawPhone, setWithdrawPhone] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
   const [recentTransaction, setRecentTransaction] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
 
-  // Initialize empty user data - will be loaded from backend
+  // Initialize empty user data
   const [userData, setUserData] = useState<UserData>({
     username: '',
     phone: '',
@@ -98,7 +105,7 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
   // Toast helpers
   const showError = (message: string) => {
     toast.error(message, {
-      duration: 2000,
+      duration: 3000,
       position: 'top-center',
       style: {
         background: 'rgba(239, 68, 68, 0.95)',
@@ -112,7 +119,7 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
 
   const showSuccess = (message: string) => {
     toast.success(message, {
-      duration: 2000,
+      duration: 3000,
       position: 'top-center',
       style: {
         background: 'rgba(16, 185, 129, 0.95)',
@@ -130,164 +137,85 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
       duration: 5000,
       position: 'top-center',
       style: {
-        background: 'rgba(16, 185, 129, 0.95)',
+        background: 'rgba(59, 130, 246, 0.95)',
         color: 'white',
         borderRadius: '10px',
-        border: '1px solid rgba(16, 185, 129, 0.3)',
+        border: '1px solid rgba(59, 130, 246, 0.3)',
         backdropFilter: 'blur(10px)'
       }
     });
   };
 
-  // Find user by phone in backend
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   const findUserByPhone = async (phone: string): Promise<UserData | null> => {
-  try {
-    const cleanPhone = phone.replace(/\D/g, '');
-    
-    // Try different phone formats
-    const phoneFormats = [];
-    
-    // 1. Clean phone as-is (could be 0704306867 or 704306867)
-    phoneFormats.push(cleanPhone);
-    
-    // 2. If it starts with 0, try without 0 (0704306867 -> 704306867)
-    if (cleanPhone.startsWith('0')) {
-      phoneFormats.push(cleanPhone.substring(1));
-    }
-    
-    // 3. Try with 254 prefix (704306867 -> 254704306867)
-    if (cleanPhone.length === 9) {
-      phoneFormats.push('254' + cleanPhone);
-    } else if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
-      phoneFormats.push('254' + cleanPhone.substring(1));
-    }
-    
-    console.log('Searching for phone formats:', phoneFormats);
-    
-    // Try each format
-    for (const phoneFormat of phoneFormats) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/profile/profile/phone/${phoneFormat}`);
-        
-        if (response.ok) {
-          const backendUser = await response.json();
-          console.log(`✅ Found user with phone format ${phoneFormat}:`, backendUser);
-          
-          return {
-            user_id: backendUser.user_id,
-            username: backendUser.username || '',
-            phone: phone, // Keep the original local format
-            nickname: backendUser.nickname || '',
-            club_fan: backendUser.club_fan || '',
-            country_fan: backendUser.country_fan || '',
-            balance: backendUser.balance || 0,
-            number_of_bets: backendUser.number_of_bets || 0
-          };
-        }
-      } catch (error) {
-        console.log(`Format ${phoneFormat} not found:`, error);
+    try {
+      const cleanPhone = phone.replace(/\D/g, '');
+      
+      const phoneFormats = [];
+      phoneFormats.push(cleanPhone);
+      
+      if (cleanPhone.startsWith('0')) {
+        phoneFormats.push(cleanPhone.substring(1));
       }
+      
+      if (cleanPhone.length === 9) {
+        phoneFormats.push('254' + cleanPhone);
+      } else if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
+        phoneFormats.push('254' + cleanPhone.substring(1));
+      }
+      
+      for (const phoneFormat of phoneFormats) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/profile/profile/phone/${phoneFormat}`);
+          
+          if (response.ok) {
+            const backendUser = await response.json();
+            
+            return {
+              user_id: backendUser.user_id,
+              username: backendUser.username || '',
+              phone: phone,
+              nickname: backendUser.nickname || '',
+              club_fan: backendUser.club_fan || '',
+              country_fan: backendUser.country_fan || '',
+              balance: backendUser.balance || 0,
+              number_of_bets: backendUser.number_of_bets || 0
+            };
+          }
+        } catch (error) {
+          console.log(`Format ${phoneFormat} not found:`, error);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.log('Error finding user by phone:', error);
+      return null;
+    }
+  };
+
+  const formatPhoneTo254 = (phone: string): string => {
+    const clean = phone.replace(/\D/g, '');
+    
+    if (clean.length === 12 && clean.startsWith('254')) {
+      return clean;
     }
     
-    return null;
-  } catch (error) {
-    console.log('Error finding user by phone:', error);
-    return null;
-  }
-};
-
-
-const formatPhoneTo254 = (phone: string): string => {
-  const clean = phone.replace(/\D/g, '');
-  
-  // Already in 254 format
-  if (clean.length === 12 && clean.startsWith('254')) {
+    if (clean.length === 10 && clean.startsWith('0')) {
+      return '254' + clean.substring(1);
+    }
+    
+    if (clean.length === 9) {
+      return '254' + clean;
+    }
+    
     return clean;
-  }
-  
-  // Convert 0704306867 or 704306867 to 254704306867
-  if (clean.length === 10 && clean.startsWith('0')) {
-    return '254' + clean.substring(1);
-  }
-  
-  if (clean.length === 9) {
-    return '254' + clean;
-  }
-  
-  return clean;
-};
+  };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // Load user from backend (primary source of truth)
+  // Load user from backend
   const loadUserFromBackend = async () => {
     try {
       setIsSyncing(true);
       
-      // 1. Check if we have phone in localStorage
       const saved = localStorage.getItem('userProfile');
       let localPhone = '';
       
@@ -300,14 +228,13 @@ const formatPhoneTo254 = (phone: string): string => {
         }
       }
       
-      // 2. Try to find user by phone in backend
       if (localPhone) {
         const backendUser = await findUserByPhone(localPhone);
         
         if (backendUser) {
-          // User found in backend - use backend data
           setUserData(backendUser);
           setDepositPhone(backendUser.phone);
+          setWithdrawPhone(backendUser.phone);
           localStorage.setItem('userProfile', JSON.stringify(backendUser));
           setCurrentPage('view');
           setIsSyncing(false);
@@ -315,14 +242,13 @@ const formatPhoneTo254 = (phone: string): string => {
         }
       }
       
-      // 3. No user found in backend, check local storage
       if (saved) {
         try {
           const localData = JSON.parse(saved);
           setUserData(localData);
           setDepositPhone(localData.phone || '');
+          setWithdrawPhone(localData.phone || '');
           
-          // Check if we have minimal data
           const hasData = localData.username?.trim() || localData.phone?.trim();
           setCurrentPage(hasData ? 'view' : 'edit');
         } catch {
@@ -382,24 +308,9 @@ const formatPhoneTo254 = (phone: string): string => {
       setIsProcessing(true);
       showLoading('Saving profile...', 'save-profile');
 
-      // Format phone for backend
-      const formatPhoneTo254 = (phone: string): string => {
-        const clean = phone.replace(/\D/g, '');
-        if (clean.length === 10 && clean.startsWith('0')) {
-          return '254' + clean.substring(1);
-        }
-        if (clean.length === 9) {
-          return '254' + clean;
-        }
-        return clean;
-      };
-
       const formattedPhone = formatPhoneTo254(userData.phone);
-      
-      // Generate user ID
       const userId = userData.user_id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Prepare profile data
       const profileData = {
         user_id: userId,
         username: userData.username || "User",
@@ -413,7 +324,6 @@ const formatPhoneTo254 = (phone: string): string => {
 
       console.log('Saving profile:', profileData);
 
-      // Save to backend
       const response = await fetch(`${API_BASE_URL}/api/profile/create_profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -424,7 +334,6 @@ const formatPhoneTo254 = (phone: string): string => {
         const result = await response.json();
         console.log('Profile saved:', result);
         
-        // Update local data with backend response
         const updatedData: UserData = {
           ...userData,
           user_id: result.user_id || userId,
@@ -432,6 +341,8 @@ const formatPhoneTo254 = (phone: string): string => {
         };
         
         setUserData(updatedData);
+        setDepositPhone(updatedData.phone);
+        setWithdrawPhone(updatedData.phone);
         localStorage.setItem('userProfile', JSON.stringify(updatedData));
         
         showSuccess('Profile saved successfully!');
@@ -440,7 +351,6 @@ const formatPhoneTo254 = (phone: string): string => {
         const errorText = await response.text();
         console.error('Save failed, trying update...', errorText);
         
-        // Try update if create failed (user might already exist)
         const updateResponse = await fetch(`${API_BASE_URL}/api/profile/profiles/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -458,6 +368,8 @@ const formatPhoneTo254 = (phone: string): string => {
           };
           
           setUserData(updatedData);
+          setDepositPhone(updatedData.phone);
+          setWithdrawPhone(updatedData.phone);
           localStorage.setItem('userProfile', JSON.stringify(updatedData));
           
           showSuccess('Profile updated successfully!');
@@ -493,15 +405,12 @@ const formatPhoneTo254 = (phone: string): string => {
       setIsProcessing(true);
       showLoading('Initiating M-Pesa payment...', 'deposit-processing');
 
-      // Get user ID - MUST come from backend
       let userId = userData.user_id;
       
       if (!userId) {
-        // Try to find user by phone in backend
         const backendUser = await findUserByPhone(phoneNumber);
         if (backendUser) {
           userId = backendUser.user_id;
-          // Update local data with backend user
           setUserData(backendUser);
           localStorage.setItem('userProfile', JSON.stringify(backendUser));
         } else {
@@ -509,7 +418,6 @@ const formatPhoneTo254 = (phone: string): string => {
         }
       }
 
-      // Format phone for M-Pesa
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       let formattedPhone = '';
       
@@ -523,14 +431,13 @@ const formatPhoneTo254 = (phone: string): string => {
         throw new Error('Invalid phone number format');
       }
 
-      console.log('Processing deposit for user:', {
+      console.log('Processing deposit:', {
         userId,
         currentBalance: userData.balance,
         depositAmount: amount,
         phone: formattedPhone
       });
 
-      // 1. M-Pesa STK Push
       const stkResponse = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -549,7 +456,6 @@ const formatPhoneTo254 = (phone: string): string => {
         throw new Error(stkResult.error || stkResult.message || 'M-Pesa payment failed');
       }
 
-      // STK Push successful
       toast.success('✓ Payment request sent! Check your phone', {
         id: 'deposit-processing',
         duration: 3000,
@@ -567,7 +473,6 @@ const formatPhoneTo254 = (phone: string): string => {
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 2. Update phone locally if changed
       if (userData.phone !== phoneNumber) {
         const updatedLocalData = { 
           ...userData, 
@@ -577,11 +482,9 @@ const formatPhoneTo254 = (phone: string): string => {
         setUserData(updatedLocalData);
       }
 
-      // 3. Calculate new balance
       const newBalance = userData.balance + amount;
       console.log(`Updating balance: ${userData.balance} + ${amount} = ${newBalance}`);
 
-      // 4. Update balance on backend
       showLoading('Processing payment...', 'update-balance');
       
       const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
@@ -599,7 +502,6 @@ const formatPhoneTo254 = (phone: string): string => {
         const updatedUser = await updateResponse.json();
         console.log('✅ Balance update successful:', updatedUser);
         
-        // Update local data with backend response
         const updatedLocalData = { 
           ...userData, 
           balance: updatedUser.balance || newBalance,
@@ -609,7 +511,7 @@ const formatPhoneTo254 = (phone: string): string => {
         
         setRecentTransaction(amount);
         setTimeout(() => setRecentTransaction(null), 3000);
-        showSuccess(`Payment successful! +Ksh ${amount.toLocaleString()} added!`);
+        showSuccess(`Deposit successful! +Ksh ${amount.toLocaleString()} added!`);
         setDepositAmount('');
         setCurrentPage('view');
       } else {
@@ -628,12 +530,12 @@ const formatPhoneTo254 = (phone: string): string => {
     }
   };
 
+  // Handle withdrawal
+  
   // Handle close
   const handleClose = () => {
     if (currentPage === 'view') {
       onClose();
-    } else if (currentPage === 'deposit') {
-      setCurrentPage('view');
     } else {
       const hasData = userData.username.trim() || userData.phone.trim();
       if (hasData) {
@@ -643,6 +545,295 @@ const formatPhoneTo254 = (phone: string): string => {
       }
     }
   };
+
+const handleWithdraw = async () => {
+  if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) <= 0) {
+    showError('Enter valid amount');
+    return;
+  }
+
+  const amount = Number(withdrawAmount);
+  
+  // Check minimum withdrawal amount
+  if (amount < 50) {
+    showError('Minimum withdrawal is Ksh 50');
+    return;
+  }
+
+  // Check if user has enough balance
+  if (userData.balance < amount) {
+    showError(`Insufficient balance. You have Ksh ${userData.balance.toLocaleString()}`);
+    return;
+  }
+
+  // Use withdraw phone or user's phone
+  const phoneNumber = withdrawPhone || userData.phone;
+  
+  if (!phoneNumber) {
+    showError('Please set your phone number first');
+    return;
+  }
+
+  try {
+    setIsProcessing(true);
+    showLoading('Processing withdrawal...', 'withdraw-processing');
+
+    // Format phone for M-Pesa
+    const formattedPhone = formatPhoneTo254(phoneNumber);
+    
+    console.log('Processing withdrawal:', {
+      userId: userData.user_id,
+      amount,
+      currentBalance: userData.balance,
+      phone: formattedPhone
+    });
+
+    // 1. Call B2C API to send money
+    const withdrawResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone_number: formattedPhone,
+        amount: amount.toString(),
+        command_id: 'BusinessPayment',
+        remarks: 'Withdrawal from FanClash',
+        occasion: 'Cash Withdrawal'
+      }),
+    });
+
+    const withdrawResult = await withdrawResponse.json();
+    console.log('B2C Withdrawal Response:', withdrawResult);
+
+    // Check API response
+    if (!withdrawResponse.ok) {
+      const errorMessage = withdrawResult.error || 
+                          withdrawResult.response_description || 
+                          'Withdrawal request failed';
+      throw new Error(errorMessage);
+    }
+
+    // Check M-Pesa response code
+    if (withdrawResult.response_code !== "0" && withdrawResult.response_code !== "0.00") {
+      // Handle specific M-Pesa error codes
+      let errorMsg = withdrawResult.response_description || 'M-Pesa transaction failed';
+      
+      // Common B2C errors
+      if (errorMsg.includes('PIN') || errorMsg.includes('pin')) {
+        errorMsg = 'Business account error. Please contact support.';
+      } else if (errorMsg.includes('balance') || errorMsg.includes('insufficient')) {
+        errorMsg = 'Service temporarily unavailable. Please try again later.';
+      } else if (errorMsg.includes('limit') || errorMsg.includes('exceeded')) {
+        errorMsg = 'Daily limit reached. Please try a smaller amount or try tomorrow.';
+      }
+      
+      throw new Error(errorMsg);
+    }
+
+    // 2. SUCCESS - M-Pesa accepted the request
+    toast.success('✓ Withdrawal initiated successfully!', {
+      id: 'withdraw-processing',
+      duration: 3000,
+      position: 'top-center',
+      style: {
+        background: 'rgba(16, 185, 129, 0.95)',
+        color: 'white',
+        fontSize: '12px',
+        padding: '8px 16px',
+        borderRadius: '8px',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(16, 185, 129, 0.3)'
+      },
+    });
+
+    // 3. Update user balance immediately (optimistic update)
+    const newBalance = userData.balance - amount;
+    console.log(`Updating balance: ${userData.balance} - ${amount} = ${newBalance}`);
+
+    showLoading('Updating balance...', 'update-withdraw-balance');
+    
+    const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userData.user_id,
+        balance: newBalance
+      }),
+    });
+
+    console.log('Balance update status:', updateResponse.status);
+    
+    if (updateResponse.ok) {
+      const updatedUser = await updateResponse.json();
+      console.log('✅ Balance update successful:', updatedUser);
+      
+      // Update local data
+      const updatedLocalData = { 
+        ...userData, 
+        balance: updatedUser.balance || newBalance,
+      };
+      localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
+      setUserData(updatedLocalData);
+      
+      // Add to withdrawal history
+      const withdrawalRecord = {
+        id: `withdraw_${Date.now()}`,
+        amount,
+        phone: formattedPhone,
+        timestamp: new Date().toISOString(),
+        status: 'processing',
+        conversation_id: withdrawResult.conversation_id,
+        originator_conversation_id: withdrawResult.originator_conversation_id,
+        response_code: withdrawResult.response_code
+      };
+      
+      setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
+      
+      // Show success
+      setRecentTransaction(-amount);
+      setTimeout(() => setRecentTransaction(null), 3000);
+      
+      showSuccess(`Withdrawal of Ksh ${amount.toLocaleString()} processing! You will receive money shortly.`);
+      setWithdrawAmount('');
+      setCurrentPage('view');
+      
+      // 4. IMPORTANT: Set up a webhook listener or poll for transaction status
+      // This is where you should check if the money was actually sent
+      checkWithdrawalStatus(withdrawResult.conversation_id, amount);
+      
+    } else {
+      const errorText = await updateResponse.text();
+      console.error('Balance update failed:', errorText);
+      
+      // Even if balance update fails, the money might have been sent
+      // So we should still show success but warn about balance sync
+      toast.warning('Withdrawal sent but balance update failed. Contact support.', {
+        duration: 5000,
+      });
+      
+      // Add to history anyway
+      const withdrawalRecord = {
+        id: `withdraw_${Date.now()}`,
+        amount,
+        phone: formattedPhone,
+        timestamp: new Date().toISOString(),
+        status: 'sent_balance_error',
+        conversation_id: withdrawResult.conversation_id
+      };
+      
+      setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
+    }
+
+  } catch (error) {
+    console.error('Withdrawal error:', error);
+    toast.dismiss('withdraw-processing');
+    toast.dismiss('update-withdraw-balance');
+    
+    // User-friendly error messages
+    let userMessage = error.message;
+    if (error.message.includes('Business account') || error.message.includes('PIN')) {
+      userMessage = 'Withdrawal service temporarily unavailable. Please try again later or contact support.';
+    }
+    
+    showError(userMessage);
+  } finally {
+    setIsProcessing(false);
+  }
+};
+
+// Helper function to check withdrawal status
+const checkWithdrawalStatus = async (conversationId, amount) => {
+  try {
+    // Wait a few seconds then check status
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    
+    const statusResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/status/${conversationId}`);
+    
+    if (statusResponse.ok) {
+      const status = await statusResponse.json();
+      console.log('Withdrawal status:', status);
+      
+      if (status.result_code === '0') {
+        // Transaction successful
+        toast.success(`✓ Ksh ${amount.toLocaleString()} sent to your M-Pesa!`, {
+          duration: 4000,
+        });
+        
+        // Update withdrawal history status
+        setWithdrawalHistory(prev => 
+          prev.map(w => 
+            w.conversation_id === conversationId 
+              ? { ...w, status: 'completed', completed_at: new Date().toISOString() }
+              : w
+          )
+        );
+      } else {
+        // Transaction failed - we should refund the user
+        toast.error('Withdrawal failed. Your balance will be refunded.', {
+          duration: 4000,
+        });
+        
+        // Call refund endpoint
+        await refundFailedWithdrawal(conversationId, amount);
+      }
+    }
+  } catch (error) {
+    console.log('Status check failed:', error);
+    // Silently fail - user already got initial confirmation
+  }
+};
+
+// Helper to refund if withdrawal fails
+const refundFailedWithdrawal = async (conversationId, amount) => {
+  try {
+    const refundResponse = await fetch(`${API_BASE_URL}/api/profile/refund-failed-withdrawal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userData.user_id,
+        conversation_id: conversationId,
+        amount: amount
+      }),
+    });
+    
+    if (refundResponse.ok) {
+      const updatedUser = await refundResponse.json();
+      setUserData(prev => ({ ...prev, balance: updatedUser.balance }));
+      
+      // Update withdrawal history
+      setWithdrawalHistory(prev => 
+        prev.map(w => 
+          w.conversation_id === conversationId 
+            ? { ...w, status: 'failed_refunded' }
+            : w
+        )
+      );
+    }
+  } catch (error) {
+    console.error('Refund failed:', error);
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // Check if user has data
   const hasUserData = userData.username.trim() || userData.phone.trim();
@@ -658,6 +849,9 @@ const formatPhoneTo254 = (phone: string): string => {
     }
     return 'Not set';
   };
+
+  // Check if user can withdraw (balance > 50)
+  const canWithdraw = userData.balance > 50;
 
   if (!isOpen) return null;
 
@@ -709,7 +903,7 @@ const formatPhoneTo254 = (phone: string): string => {
                       <h2 className="text-white text-[17px] font-bold leading-tight">
                         {currentPage === 'view' ? 'Profile' : 
                          currentPage === 'edit' ? (hasUserData ? 'Edit Profile' : 'Setup Profile') : 
-                         'Deposit Funds'}
+                         currentPage === 'deposit' ? 'Deposit Funds' : 'Withdraw Cash'}
                       </h2>
                       {currentPage === 'view' && hasUserData && (
                         <Sparkles className="h-3.5 w-3.5 text-emerald-300 animate-pulse" />
@@ -777,25 +971,53 @@ const formatPhoneTo254 = (phone: string): string => {
                             {isSyncing ? 'Syncing...' : 'Live from server'}
                           </div>
                         </div>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setCurrentPage('deposit')}
-                          className="mt-3 w-full py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-emerald-500/[0.3]"
-                        >
-                          <Coins className="h-4 w-4" />
-                          Add Funds
-                        </motion.button>
+                        
+                        {/* Action Buttons */}
+                        <div className="space-y-2 mt-3">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setCurrentPage('deposit')}
+                            className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-emerald-500/[0.3]"
+                          >
+                            <ArrowUpRight className="h-4 w-4" />
+                            Add Funds
+                          </motion.button>
+                          
+                          {canWithdraw && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => setCurrentPage('withdraw')}
+                              className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-blue-500/[0.3]"
+                            >
+                              <ArrowDownLeft className="h-4 w-4" />
+                              Withdraw Cash
+                            </motion.button>
+                          )}
+                        </div>
                         
                         {/* Recent transaction animation */}
                         {recentTransaction && (
                           <motion.div
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="mt-2 text-xs text-emerald-300 font-medium flex items-center gap-1"
+                            className="mt-2 text-xs font-medium flex items-center gap-1"
+                            style={{
+                              color: recentTransaction > 0 ? '#10b981' : '#ef4444'
+                            }}
                           >
-                            <TrendingUp className="h-3 w-3" />
-                            + Ksh {recentTransaction.toLocaleString()}
+                            {recentTransaction > 0 ? (
+                              <>
+                                <TrendingUp className="h-3 w-3" />
+                                + Ksh {Math.abs(recentTransaction).toLocaleString()}
+                              </>
+                            ) : (
+                              <>
+                                <TrendingUp className="h-3 w-3 rotate-180" />
+                                - Ksh {Math.abs(recentTransaction).toLocaleString()}
+                              </>
+                            )}
                           </motion.div>
                         )}
                       </motion.div>
@@ -872,6 +1094,7 @@ const formatPhoneTo254 = (phone: string): string => {
                     exit={{ opacity: 0, x: -20 }}
                     className="p-6"
                   >
+                    {/* Edit Profile Content (same as before) */}
                     <div className="space-y-4">
                       {[
                         { field: 'username', label: 'Username', placeholder: 'Enter username' },
@@ -942,7 +1165,7 @@ const formatPhoneTo254 = (phone: string): string => {
                       </div>
                     </div>
                   </motion.div>
-                ) : (
+                ) : currentPage === 'deposit' ? (
                   <motion.div
                     key="deposit"
                     initial={{ opacity: 0, x: 20 }}
@@ -950,12 +1173,12 @@ const formatPhoneTo254 = (phone: string): string => {
                     exit={{ opacity: 0, x: -20 }}
                     className="p-6"
                   >
-                    {/* Deposit Header */}
+                    {/* Deposit Content (same as before) */}
                     <div className="text-center mb-6">
                       <div className="relative inline-block mb-3">
                         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 blur-xl rounded-full opacity-30" />
                         <div className="relative p-4 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 shadow-xl shadow-emerald-500/30">
-                          <Coins className="h-8 w-8 text-white" />
+                          <ArrowUpRight className="h-8 w-8 text-white" />
                         </div>
                       </div>
                       <h3 className="text-[18px] font-bold text-white mb-2">Deposit Funds</h3>
@@ -1073,6 +1296,180 @@ const formatPhoneTo254 = (phone: string): string => {
                               <>
                                 <CreditCard className="h-4 w-4" />
                                 Deposit Now
+                              </>
+                            )}
+                          </motion.button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  /* Withdraw Page */
+                  <motion.div
+                    key="withdraw"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="p-6"
+                  >
+                    {/* Withdraw Header */}
+                    <div className="text-center mb-6">
+                      <div className="relative inline-block mb-3">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 blur-xl rounded-full opacity-30" />
+                        <div className="relative p-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 shadow-xl shadow-blue-500/30">
+                          <ArrowDownLeft className="h-8 w-8 text-white" />
+                        </div>
+                      </div>
+                      <h3 className="text-[18px] font-bold text-white mb-2">Withdraw Cash</h3>
+                      <p className="text-white/[0.6] text-[13px]">Withdraw money to your M-Pesa</p>
+                    </div>
+
+                    {/* Current Balance */}
+                    <div className="mb-6 p-4 bg-white/[0.05] border border-white/[0.1] rounded-xl backdrop-blur-sm">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-[12px] text-white/[0.6] mb-1">Available Balance</div>
+                          <div className="text-[24px] font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
+                            Ksh {userData.balance.toLocaleString()}
+                          </div>
+                        </div>
+                        {!canWithdraw && (
+                          <div className="flex items-center gap-1 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                            <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
+                            <span className="text-xs text-amber-300">Min: Ksh 50</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Withdrawal Form */}
+                    <div className="space-y-4">
+                      {/* Phone Input */}
+                      <div>
+                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                          M-Pesa Number
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold text-sm">+254</div>
+                          <input
+                            type="tel"
+                            value={withdrawPhone}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              if (value.length <= 10) {
+                                setWithdrawPhone(value);
+                              }
+                            }}
+                            className="w-full pl-12 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.15] rounded-xl text-white text-sm placeholder:text-white/[0.4] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all backdrop-blur-sm"
+                            placeholder="0712345679 or 712345678"
+                            maxLength={10}
+                          />
+                        </div>
+                        <p className="text-[11px] text-white/[0.5] mt-1 ml-1">
+                          Money will be sent to this number
+                        </p>
+                      </div>
+
+                      {/* Amount Input */}
+                      <div>
+                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                          Amount to Withdraw (Ksh)
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold text-sm">Ksh</div>
+                          <input
+                            type="number"
+                            value={withdrawAmount}
+                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.15] rounded-xl text-white text-sm font-bold placeholder:text-white/[0.4] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all backdrop-blur-sm"
+                            placeholder="0"
+                            min="50"
+                            max={userData.balance}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <p className="text-[11px] text-white/[0.5] ml-1">
+                            Minimum: Ksh 50
+                          </p>
+                          <p className="text-[11px] text-white/[0.5]">
+                            Maximum: Ksh {userData.balance.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Amounts */}
+                      <div>
+                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                          Quick Select
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[50, 100, 500, 1000, 2000, 5000].map((amt) => (
+                            <motion.button
+                              key={amt}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => {
+                                if (amt <= userData.balance) {
+                                  setWithdrawAmount(amt.toString());
+                                } else {
+                                  showError(`Amount exceeds balance`);
+                                }
+                              }}
+                              disabled={amt > userData.balance}
+                              className={`py-2.5 border rounded-lg transition-all text-xs font-medium backdrop-blur-sm ${
+                                amt > userData.balance
+                                  ? 'bg-white/[0.03] border-white/[0.1] text-white/[0.3] cursor-not-allowed'
+                                  : 'bg-white/[0.05] border-white/[0.1] text-white hover:bg-blue-500/[0.1] hover:border-blue-500/[0.3]'
+                              }`}
+                            >
+                              Ksh {amt.toLocaleString()}
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Fee Info */}
+                      <div className="p-3 bg-white/[0.05] rounded-lg border border-white/[0.1] backdrop-blur-sm">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-blue-300 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-[11px] text-white/[0.7] mb-1">
+                              <span className="font-semibold text-white">No fees!</span> Withdrawals are free.
+                            </p>
+                            <p className="text-[11px] text-white/[0.7]">
+                              Money arrives instantly to your M-Pesa account.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="sticky bottom-0 pt-4 pb-2 bg-gradient-to-t from-black/[0.5] via-transparent to-transparent">
+                        <div className="flex gap-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setCurrentPage('view')}
+                            className="flex-1 py-3 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl hover:bg-white/[0.08] hover:border-white/[0.25] transition-all text-sm font-medium backdrop-blur-sm"
+                          >
+                            Cancel
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handleWithdraw}
+                            disabled={isProcessing || !withdrawAmount || Number(withdrawAmount) < 50 || Number(withdrawAmount) > userData.balance}
+                            className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition-all text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+                          >
+                            {isProcessing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <ArrowDownLeft className="h-4 w-4" />
+                                Withdraw Now
                               </>
                             )}
                           </motion.button>
