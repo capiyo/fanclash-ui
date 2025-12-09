@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Lock, Phone, ArrowRight, LogIn, UserPlus, X, Shield, Sparkles } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { toast } from 'react-hot-toast';
+import { useToast } from "@/hooks/use-toast";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -28,10 +28,71 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
   const [isLoading, setIsLoading] = useState(false);
   const loginUrl = "https://fanclash-api.onrender.com/api/auth";
   const registerUrl = "https://fanclash-api.onrender.com/api/auth/register";
-
+  const { toast } = useToast();
   const loginForm = useForm<LoginFormData>();
   const registerForm = useForm<RegisterFormData>();
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Function to load all user data from database
+  const loadUserData = async (token: string, userId: string) => {
+    try {
+      console.log('🔄 Loading user data from database...');
+      
+      // Load user bets
+      const betsResponse = await fetch(`https://fanclash-api.onrender.com/api/bets/user/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (betsResponse.ok) {
+        const bets = await betsResponse.json();
+        localStorage.setItem('userBets', JSON.stringify(bets));
+        console.log('✅ Bets loaded:', bets.length);
+      }
+
+      // Load user pledges
+      const pledgesResponse = await fetch(`https://fanclash-api.onrender.com/api/pledges/user/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (pledgesResponse.ok) {
+        const pledges = await pledgesResponse.json();
+        localStorage.setItem('userPledges', JSON.stringify(pledges));
+        console.log('✅ Pledges loaded:', pledges.length);
+      }
+
+      // Load user posts
+      const postsResponse = await fetch(`https://fanclash-api.onrender.com/api/posts/user/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (postsResponse.ok) {
+        const posts = await postsResponse.json();
+        localStorage.setItem('userPosts', JSON.stringify(posts));
+        console.log('✅ Posts loaded:', posts.length);
+      }
+
+      // Load user profile
+      const profileResponse = await fetch(`https://fanclash-api.onrender.com/api/user/profile/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        localStorage.setItem('userProfile', JSON.stringify(profile));
+        console.log('✅ Profile loaded');
+      }
+
+      // Load available games/fixtures
+      const gamesResponse = await fetch('https://fanclash-api.onrender.com/api/games/active');
+      if (gamesResponse.ok) {
+        const games = await gamesResponse.json();
+        localStorage.setItem('availableGames', JSON.stringify(games));
+        console.log('✅ Games loaded:', games.length);
+      }
+
+      console.log('🎯 All user data loaded successfully!');
+      return true;
+    } catch (error) {
+      console.error('❌ Error loading user data:', error);
+      return false;
+    }
+  };
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -72,46 +133,68 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
   const handleLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
+      console.log('🔐 Attempting login...');
       const response = await fetch(`${loginUrl}/login`, {
         method: "POST",
-        headers: { 'content-type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(data)
       });
 
       const result = await response.json();
       
-      if (result.token) {
+      if (result.token && result.user) {
+        // Store authentication data
         localStorage.setItem("usertoken", result.token);
         localStorage.setItem("user", JSON.stringify(result.user));
-        toast.success('Login successful!', {
-          style: {
-            background: 'rgba(16, 185, 129, 0.95)',
-            color: 'white',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(16, 185, 129, 0.3)'
-          }
-        });
-        if (onLoginSuccess) onLoginSuccess();
+        
+        console.log('✅ Login successful, loading user data...');
+        
+        // Load all user data from database
+        const dataLoaded = await loadUserData(result.token, result.user.id);
+        
+        if (dataLoaded) {
+          toast({
+            title: "Login Successful! 🎉",
+            description: "Welcome back! All your data has been loaded.",
+            variant: "default",
+            className: "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200 text-emerald-900"
+          });
+        } else {
+          toast({
+            title: "Login Successful! 🎉",
+            description: "Welcome back! Some data may take a moment to load.",
+            variant: "default",
+            className: "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200 text-emerald-900"
+          });
+        }
+        
+        // Trigger refresh of all app data
+        if (onLoginSuccess) {
+          onLoginSuccess();
+          
+          // Dispatch custom event to notify other components
+          window.dispatchEvent(new CustomEvent('userLoggedIn', { 
+            detail: { userId: result.user.id } 
+          }));
+        }
+        
         onClose();
       } else {
-        toast.error(result.error || 'Login failed', {
-          style: {
-            background: 'rgba(239, 68, 68, 0.95)',
-            color: 'white',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(239, 68, 68, 0.3)'
-          }
+        toast({
+          title: "Login Failed",
+          description: result.error || "Invalid username or password",
+          variant: "destructive"
         });
       }
     } catch (err) {
-      console.log(err);
-      toast.error("Connection error", {
-        style: {
-          background: 'rgba(239, 68, 68, 0.95)',
-          color: 'white',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(239, 68, 68, 0.3)'
-        }
+      console.error('Login error:', err);
+      toast({
+        title: "Connection Error",
+        description: "Unable to connect to server. Please try again later.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
@@ -121,46 +204,57 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
   const handleRegister = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
+      console.log('📝 Attempting registration...');
       const response = await fetch(registerUrl, {
         method: "POST",
-        headers: { 'content-type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(data)
       });
 
       const result = await response.json();
       
-      if (result.success) {
+      if (result.token && result.user) {
+        // Store authentication data
         localStorage.setItem("usertoken", result.token);
         localStorage.setItem("user", JSON.stringify(result.user));
-        toast.success('Registration successful!', {
-          style: {
-            background: 'rgba(16, 185, 129, 0.95)',
-            color: 'white',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(16, 185, 129, 0.3)'
-          }
+        
+        console.log('✅ Registration successful, loading initial data...');
+        
+        // Load initial data for new user
+        await loadUserData(result.token, result.user.id);
+        
+        toast({
+          title: "Welcome to FanClash! 🎉",
+          description: "Your account has been created with Ksh 100 bonus!",
+          variant: "default",
+          className: "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200 text-emerald-900"
         });
-        if (onLoginSuccess) onLoginSuccess();
+        
+        // Trigger refresh
+        if (onLoginSuccess) {
+          onLoginSuccess();
+          window.dispatchEvent(new CustomEvent('userRegistered', { 
+            detail: { userId: result.user.id } 
+          }));
+        }
+        
         onClose();
       } else {
-        toast.error(result.error || 'Registration failed', {
-          style: {
-            background: 'rgba(239, 68, 68, 0.95)',
-            color: 'white',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(239, 68, 68, 0.3)'
-          }
+        toast({
+          title: "Registration Failed",
+          description: result.error || 'Registration failed. Please try again.',
+          variant: "destructive"
         });
       }
     } catch (err) {
-      console.log(err);
-      toast.error("Connection error", {
-        style: {
-          background: 'rgba(239, 68, 68, 0.95)',
-          color: 'white',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(239, 68, 68, 0.3)'
-        }
+      console.error('Registration error:', err);
+      toast({
+        title: "Connection Error",
+        description: "Unable to connect to server. Please try again later.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
@@ -410,7 +504,8 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                       </div>
                       <input
                         {...registerForm.register("username", { 
-                          required: "Username is required"
+                          required: "Username is required",
+                          minLength: { value: 3, message: "Minimum 3 characters" }
                         })}
                         type="text"
                         className="w-full p-3 border border-white/[0.15] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] text-white text-sm placeholder-white/[0.4] transition-all backdrop-blur-sm"
@@ -506,6 +601,10 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
                             <li className="flex items-center gap-1">
                               <div className="w-1 h-1 rounded-full bg-emerald-400"></div>
                               Share your predictions
+                            </li>
+                            <li className="flex items-center gap-1">
+                              <div className="w-1 h-1 rounded-full bg-emerald-400"></div>
+                              Auto-sync across all devices
                             </li>
                           </ul>
                         </div>

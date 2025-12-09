@@ -147,8 +147,8 @@ const PostsMobile = () => {
 
   const generateRandomCaption = () => {
     const footballer = premierLeagueFootballers[Math.floor(Math.random() * premierLeagueFootballers.length)];
-    const team1 = premierLeagueTeams[Math.floor(Math.random() * premierLeagueTeams.length)];
-    const team2 = premierLeagueTeams[Math.floor(Math.random() * premierLeagueTeams.length)];
+    let team1 = premierLeagueTeams[Math.floor(Math.random() * premierLeagueTeams.length)];
+    let team2 = premierLeagueTeams[Math.floor(Math.random() * premierLeagueTeams.length)];
     while (team1 === team2) {
       team2 = premierLeagueTeams[Math.floor(Math.random() * premierLeagueTeams.length)];
     }
