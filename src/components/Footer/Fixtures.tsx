@@ -58,7 +58,7 @@ const Fixtures = () => {
   const [sortBy, setSortBy] = useState<'date' | 'odds' | 'league'>('date');
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const API_BASE_URL = 'http://localhost:3000/api/games';
+  const API_BASE_URL = 'https://fanclash-api.onrender.com/api/games';
   const API_PROFILE_URL = 'https://fanclash-api.onrender.com/api/profile';
 
   const { toast } = useToast();
