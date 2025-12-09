@@ -235,6 +235,30 @@ const PledgeCard = () => {
         phone: "0734567890",
         time: new Date().toISOString(),
         _id: "mock_003"
+      },
+      {
+        amount: 750,
+        home_team: "Real Madrid",
+        away_team: "Barcelona",
+        selection: "home_team",
+        fan: "Madridista",
+        starter_id: "starter_004",
+        username: "RM_Fan",
+        phone: "0745678901",
+        time: new Date().toISOString(),
+        _id: "mock_004"
+      },
+      {
+        amount: 1500,
+        home_team: "Bayern Munich",
+        away_team: "Dortmund",
+        selection: "away_team",
+        fan: "Borussia",
+        starter_id: "starter_005",
+        username: "BVB_Fan",
+        phone: "0756789012",
+        time: new Date().toISOString(),
+        _id: "mock_005"
       }
     ];
     
@@ -268,8 +292,8 @@ const PledgeCard = () => {
   });
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans overflow-hidden max-w-full">
-      {/* Mobile Header */}
+    <div className="min-h-screen bg-black text-white font-sans overflow-hidden">
+      {/* Mobile Header - Fixed */}
       <div className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm border-b border-gray-800/50">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
@@ -338,10 +362,10 @@ const PledgeCard = () => {
         </div>
       </div>
 
-      {/* Mobile Main Content */}
-      <div className="flex-1 pb-20">
+      {/* Main Content Area - Scrollable */}
+      <div className="h-[calc(100vh-144px)] overflow-y-auto pb-16">
         {/* Mobile Filters & Stats */}
-        <div className="p-3 border-b border-gray-800/50">
+        <div className="p-3 border-b border-gray-800/50 bg-black">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-bold text-white">P2P Challenges</h1>
             
@@ -360,13 +384,13 @@ const PledgeCard = () => {
           </div>
 
           {/* Filter Buttons - Horizontal Scroll */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-3 px-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2">
             <Button
               variant={activeFilter === 'all' ? 'default' : 'outline'}
               onClick={() => setActiveFilter('all')}
               size="sm"
               className={cn(
-                "rounded-full whitespace-nowrap text-xs",
+                "rounded-full whitespace-nowrap text-xs flex-shrink-0",
                 activeFilter === 'all' 
                   ? "bg-emerald-500 text-white border-emerald-500" 
                   : "border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500"
@@ -379,7 +403,7 @@ const PledgeCard = () => {
               onClick={() => setActiveFilter('available')}
               size="sm"
               className={cn(
-                "rounded-full whitespace-nowrap text-xs",
+                "rounded-full whitespace-nowrap text-xs flex-shrink-0",
                 activeFilter === 'available' 
                   ? "bg-emerald-500 text-white border-emerald-500" 
                   : "border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500"
@@ -392,7 +416,7 @@ const PledgeCard = () => {
               onClick={() => setActiveFilter('matched')}
               size="sm"
               className={cn(
-                "rounded-full whitespace-nowrap text-xs",
+                "rounded-full whitespace-nowrap text-xs flex-shrink-0",
                 activeFilter === 'matched' 
                   ? "bg-emerald-500 text-white border-emerald-500" 
                   : "border-gray-800 text-gray-400 hover:text-emerald-500 hover:border-emerald-500"
@@ -402,7 +426,7 @@ const PledgeCard = () => {
             </Button>
             
             {/* Sort Options */}
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2 flex-shrink-0">
               <Button
                 variant="outline"
                 size="sm"
@@ -416,7 +440,7 @@ const PledgeCard = () => {
           </div>
         </div>
 
-        {/* Mobile Bet Cards List */}
+        {/* Scrollable Content Area */}
         <div className="p-3">
           {loading ? (
             <div className="flex items-center justify-center py-16">
@@ -475,7 +499,7 @@ const PledgeCard = () => {
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation - Fixed */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-sm border-t border-gray-800/50 z-40">
         <div className="px-2 py-2">
           <div className="flex justify-around items-center">

@@ -22,12 +22,15 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  LogOut,
+  UserPlus
 } from 'lucide-react';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onLogout?: () => void; // Add logout callback prop
 }
 
 interface UserData {
@@ -42,10 +45,10 @@ interface UserData {
   id?: string;
 }
 
-export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
+export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModalProps) => {
   const API_BASE_URL = 'https://fanclash-api.onrender.com';
   
-  const [currentPage, setCurrentPage] = useState<'view' | 'edit' | 'deposit' | 'withdraw'>('view');
+  const [currentPage, setCurrentPage] = useState<'view' | 'edit' | 'deposit' | 'withdraw' | 'login'>('view');
   const [isProcessing, setIsProcessing] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositPhone, setDepositPhone] = useState('');
@@ -55,6 +58,7 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
   const [recentTransaction, setRecentTransaction] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   // Initialize empty user data
   const [userData, setUserData] = useState<UserData>({
@@ -71,7 +75,7 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
   // Load user data from BACKEND when modal opens
   useEffect(() => {
     if (isOpen) {
-      loadUserFromBackend();
+      checkUserSession();
     }
   }, [isOpen]);
 
@@ -101,6 +105,36 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
       document.body.style.overflow = 'auto';
     };
   }, [isOpen, currentPage, userData]);
+
+  // Check user session and determine if new or existing user
+  const checkUserSession = async () => {
+    try {
+      setIsSyncing(true);
+      
+      // Check for session flag to force new user flow
+      const isForcedNewUser = localStorage.getItem('forceNewUser') === 'true';
+      const sessionToken = localStorage.getItem('sessionToken');
+      const userProfile = localStorage.getItem('userProfile');
+      
+      if (isForcedNewUser || !sessionToken || !userProfile) {
+        // New user or session expired
+        setIsNewUser(true);
+        setCurrentPage('edit');
+        localStorage.removeItem('forceNewUser');
+        return;
+      }
+      
+      // Existing user - load from backend
+      await loadUserFromBackend();
+      
+    } catch (error) {
+      console.error('Session check error:', error);
+      setIsNewUser(true);
+      setCurrentPage('edit');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Toast helpers
   const showError = (message: string) => {
@@ -236,30 +270,24 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
           setDepositPhone(backendUser.phone);
           setWithdrawPhone(backendUser.phone);
           localStorage.setItem('userProfile', JSON.stringify(backendUser));
+          
+          // Create session token
+          const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          localStorage.setItem('sessionToken', sessionToken);
+          
           setCurrentPage('view');
           setIsSyncing(false);
           return;
         }
       }
       
-      if (saved) {
-        try {
-          const localData = JSON.parse(saved);
-          setUserData(localData);
-          setDepositPhone(localData.phone || '');
-          setWithdrawPhone(localData.phone || '');
-          
-          const hasData = localData.username?.trim() || localData.phone?.trim();
-          setCurrentPage(hasData ? 'view' : 'edit');
-        } catch {
-          setCurrentPage('edit');
-        }
-      } else {
-        setCurrentPage('edit');
-      }
+      // No user found, set to new user mode
+      setIsNewUser(true);
+      setCurrentPage('edit');
       
     } catch (error) {
       console.error('Error loading user:', error);
+      setIsNewUser(true);
       setCurrentPage('edit');
     } finally {
       setIsSyncing(false);
@@ -343,8 +371,14 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
         setUserData(updatedData);
         setDepositPhone(updatedData.phone);
         setWithdrawPhone(updatedData.phone);
-        localStorage.setItem('userProfile', JSON.stringify(updatedData));
         
+        // Save to localStorage with session
+        localStorage.setItem('userProfile', JSON.stringify(updatedData));
+        const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('sessionToken', sessionToken);
+        localStorage.removeItem('forceNewUser');
+        
+        setIsNewUser(false);
         showSuccess('Profile saved successfully!');
         setCurrentPage('view');
       } else {
@@ -370,8 +404,14 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
           setUserData(updatedData);
           setDepositPhone(updatedData.phone);
           setWithdrawPhone(updatedData.phone);
-          localStorage.setItem('userProfile', JSON.stringify(updatedData));
           
+          // Save to localStorage with session
+          localStorage.setItem('userProfile', JSON.stringify(updatedData));
+          const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          localStorage.setItem('sessionToken', sessionToken);
+          localStorage.removeItem('forceNewUser');
+          
+          setIsNewUser(false);
           showSuccess('Profile updated successfully!');
           setCurrentPage('view');
         } else {
@@ -531,309 +571,412 @@ export const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => 
   };
 
   // Handle withdrawal
-  
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) <= 0) {
+      showError('Enter valid amount');
+      return;
+    }
+
+    const amount = Number(withdrawAmount);
+    
+    // Check minimum withdrawal amount
+    if (amount < 50) {
+      showError('Minimum withdrawal is Ksh 50');
+      return;
+    }
+
+    // Check if user has enough balance
+    if (userData.balance < amount) {
+      showError(`Insufficient balance. You have Ksh ${userData.balance.toLocaleString()}`);
+      return;
+    }
+
+    // Use withdraw phone or user's phone
+    const phoneNumber = withdrawPhone || userData.phone;
+    
+    if (!phoneNumber) {
+      showError('Please set your phone number first');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      showLoading('Processing withdrawal...', 'withdraw-processing');
+
+      // Format phone for M-Pesa
+      const formattedPhone = formatPhoneTo254(phoneNumber);
+      
+      console.log('Processing withdrawal:', {
+        userId: userData.user_id,
+        amount,
+        currentBalance: userData.balance,
+        phone: formattedPhone
+      });
+
+      // 1. Call B2C API to send money
+      const withdrawResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone_number: formattedPhone,
+          amount: amount.toString(),
+          command_id: 'BusinessPayment',
+          remarks: 'Withdrawal from FanClash',
+          occasion: 'Cash Withdrawal'
+        }),
+      });
+
+      const withdrawResult = await withdrawResponse.json();
+      console.log('B2C Withdrawal Response:', withdrawResult);
+
+      // Check API response
+      if (!withdrawResponse.ok) {
+        const errorMessage = withdrawResult.error || 
+                          withdrawResult.response_description || 
+                          'Withdrawal request failed';
+        throw new Error(errorMessage);
+      }
+
+      // Check M-Pesa response code
+      if (withdrawResult.response_code !== "0" && withdrawResult.response_code !== "0.00") {
+        // Handle specific M-Pesa error codes
+        let errorMsg = withdrawResult.response_description || 'M-Pesa transaction failed';
+        
+        // Common B2C errors
+        if (errorMsg.includes('PIN') || errorMsg.includes('pin')) {
+          errorMsg = 'Business account error. Please contact support.';
+        } else if (errorMsg.includes('balance') || errorMsg.includes('insufficient')) {
+          errorMsg = 'Service temporarily unavailable. Please try again later.';
+        } else if (errorMsg.includes('limit') || errorMsg.includes('exceeded')) {
+          errorMsg = 'Daily limit reached. Please try a smaller amount or try tomorrow.';
+        }
+        
+        throw new Error(errorMsg);
+      }
+
+      // 2. SUCCESS - M-Pesa accepted the request
+      toast.success('✓ Withdrawal initiated successfully!', {
+        id: 'withdraw-processing',
+        duration: 3000,
+        position: 'top-center',
+        style: {
+          background: 'rgba(16, 185, 129, 0.95)',
+          color: 'white',
+          fontSize: '12px',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(16, 185, 129, 0.3)'
+        },
+      });
+
+      // 3. Update user balance immediately (optimistic update)
+      const newBalance = userData.balance - amount;
+      console.log(`Updating balance: ${userData.balance} - ${amount} = ${newBalance}`);
+
+      showLoading('Updating balance...', 'update-withdraw-balance');
+      
+      const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userData.user_id,
+          balance: newBalance
+        }),
+      });
+
+      console.log('Balance update status:', updateResponse.status);
+      
+      if (updateResponse.ok) {
+        const updatedUser = await updateResponse.json();
+        console.log('✅ Balance update successful:', updatedUser);
+        
+        // Update local data
+        const updatedLocalData = { 
+          ...userData, 
+          balance: updatedUser.balance || newBalance,
+        };
+        localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
+        setUserData(updatedLocalData);
+        
+        // Add to withdrawal history
+        const withdrawalRecord = {
+          id: `withdraw_${Date.now()}`,
+          amount,
+          phone: formattedPhone,
+          timestamp: new Date().toISOString(),
+          status: 'processing',
+          conversation_id: withdrawResult.conversation_id,
+          originator_conversation_id: withdrawResult.originator_conversation_id,
+          response_code: withdrawResult.response_code
+        };
+        
+        setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
+        
+        // Show success
+        setRecentTransaction(-amount);
+        setTimeout(() => setRecentTransaction(null), 3000);
+        
+        showSuccess(`Withdrawal of Ksh ${amount.toLocaleString()} processing! You will receive money shortly.`);
+        setWithdrawAmount('');
+        setCurrentPage('view');
+        
+        // 4. IMPORTANT: Set up a webhook listener or poll for transaction status
+        // This is where you should check if the money was actually sent
+        checkWithdrawalStatus(withdrawResult.conversation_id, amount);
+        
+      } else {
+        const errorText = await updateResponse.text();
+        console.error('Balance update failed:', errorText);
+        
+        // Even if balance update fails, the money might have been sent
+        // So we should still show success but warn about balance sync
+        toast.warning('Withdrawal sent but balance update failed. Contact support.', {
+          duration: 5000,
+        });
+        
+        // Add to history anyway
+        const withdrawalRecord = {
+          id: `withdraw_${Date.now()}`,
+          amount,
+          phone: formattedPhone,
+          timestamp: new Date().toISOString(),
+          status: 'sent_balance_error',
+          conversation_id: withdrawResult.conversation_id
+        };
+        
+        setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
+      }
+
+    } catch (error) {
+      console.error('Withdrawal error:', error);
+      toast.dismiss('withdraw-processing');
+      toast.dismiss('update-withdraw-balance');
+      
+      // User-friendly error messages
+      let userMessage = error.message;
+      if (error.message.includes('Business account') || error.message.includes('PIN')) {
+        userMessage = 'Withdrawal service temporarily unavailable. Please try again later or contact support.';
+      }
+      
+      showError(userMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Helper function to check withdrawal status
+  const checkWithdrawalStatus = async (conversationId: string, amount: number) => {
+    try {
+      // Wait a few seconds then check status
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      
+      const statusResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/status/${conversationId}`);
+      
+      if (statusResponse.ok) {
+        const status = await statusResponse.json();
+        console.log('Withdrawal status:', status);
+        
+        if (status.result_code === '0') {
+          // Transaction successful
+          toast.success(`✓ Ksh ${amount.toLocaleString()} sent to your M-Pesa!`, {
+            duration: 4000,
+          });
+          
+          // Update withdrawal history status
+          setWithdrawalHistory(prev => 
+            prev.map(w => 
+              w.conversation_id === conversationId 
+                ? { ...w, status: 'completed', completed_at: new Date().toISOString() }
+                : w
+            )
+          );
+        } else {
+          // Transaction failed - we should refund the user
+          toast.error('Withdrawal failed. Your balance will be refunded.', {
+            duration: 4000,
+          });
+          
+          // Call refund endpoint
+          await refundFailedWithdrawal(conversationId, amount);
+        }
+      }
+    } catch (error) {
+      console.log('Status check failed:', error);
+      // Silently fail - user already got initial confirmation
+    }
+  };
+
+  // Helper to refund if withdrawal fails
+  const refundFailedWithdrawal = async (conversationId: string, amount: number) => {
+    try {
+      const refundResponse = await fetch(`${API_BASE_URL}/api/profile/refund-failed-withdrawal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userData.user_id,
+          conversation_id: conversationId,
+          amount: amount
+        }),
+      });
+      
+      if (refundResponse.ok) {
+        const updatedUser = await refundResponse.json();
+        setUserData(prev => ({ ...prev, balance: updatedUser.balance }));
+        
+        // Update withdrawal history
+        setWithdrawalHistory(prev => 
+          prev.map(w => 
+            w.conversation_id === conversationId 
+              ? { ...w, status: 'failed_refunded' }
+              : w
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Refund failed:', error);
+    }
+  };
+
+  // COMPREHENSIVE LOGOUT FUNCTION
+  const handleLogout = async () => {
+    try {
+      setIsProcessing(true);
+      showLoading('Logging out...', 'logout');
+
+      // 1. Clear all localStorage items
+      localStorage.removeItem('userProfile');
+      localStorage.removeItem('sessionToken');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userSession');
+      localStorage.setItem('forceNewUser', 'true'); // Force new user next time
+      
+      // 2. Clear sessionStorage
+      sessionStorage.clear();
+      
+      // 3. Clear all cookies
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/;domain=" + window.location.hostname);
+      });
+      
+      // 4. Clear IndexedDB databases
+      if ('indexedDB' in window) {
+        try {
+          const databases = await indexedDB.databases();
+          databases.forEach(db => {
+            if (db.name) {
+              indexedDB.deleteDatabase(db.name);
+            }
+          });
+        } catch (e) {
+          console.log('IndexedDB cleanup:', e);
+        }
+      }
+      
+      // 5. Clear service worker cache
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            await registration.unregister();
+          }
+          
+          // Clear cache storage
+          if ('caches' in window) {
+            const cacheKeys = await caches.keys();
+            await Promise.all(cacheKeys.map(key => caches.delete(key)));
+          }
+        } catch (e) {
+          console.log('Service worker cleanup:', e);
+        }
+      }
+      
+      // 6. Clear application cache (if any)
+      if (window.applicationCache) {
+        try {
+          window.applicationCache.abort();
+        } catch (e) {
+          console.log('App cache cleanup:', e);
+        }
+      }
+      
+      // 7. Reset all state
+      setUserData({
+        username: '',
+        phone: '',
+        club_fan: '',
+        nickname: '',
+        country_fan: '',
+        balance: 0,
+        number_of_bets: 0,
+        user_id: ''
+      });
+      
+      setCurrentPage('edit');
+      setIsNewUser(true);
+      setDepositAmount('');
+      setDepositPhone('');
+      setWithdrawAmount('');
+      setWithdrawPhone('');
+      setRecentTransaction(null);
+      setWithdrawalHistory([]);
+      
+      // 8. Notify parent component about logout
+      if (onLogout) {
+        onLogout();
+      }
+      
+      // 9. Show success and close modal
+      toast.success('Successfully logged out!', {
+        id: 'logout',
+        duration: 3000,
+      });
+      
+      // 10. Force hard refresh to clear any cached state
+      setTimeout(() => {
+        window.location.reload(); // Full page reload to clear React state
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      showError('Error during logout. Please refresh the page.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle switch to new user mode
+  const handleSwitchToNewUser = () => {
+    setUserData({
+      username: '',
+      phone: '',
+      club_fan: '',
+      nickname: '',
+      country_fan: '',
+      balance: 0,
+      number_of_bets: 0,
+      user_id: ''
+    });
+    setIsNewUser(true);
+    setCurrentPage('edit');
+    localStorage.setItem('forceNewUser', 'true');
+  };
+
   // Handle close
   const handleClose = () => {
     if (currentPage === 'view') {
       onClose();
     } else {
       const hasData = userData.username.trim() || userData.phone.trim();
-      if (hasData) {
+      if (hasData && !isNewUser) {
         setCurrentPage('view');
       } else {
         onClose();
       }
     }
   };
-
-const handleWithdraw = async () => {
-  if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) <= 0) {
-    showError('Enter valid amount');
-    return;
-  }
-
-  const amount = Number(withdrawAmount);
-  
-  // Check minimum withdrawal amount
-  if (amount < 50) {
-    showError('Minimum withdrawal is Ksh 50');
-    return;
-  }
-
-  // Check if user has enough balance
-  if (userData.balance < amount) {
-    showError(`Insufficient balance. You have Ksh ${userData.balance.toLocaleString()}`);
-    return;
-  }
-
-  // Use withdraw phone or user's phone
-  const phoneNumber = withdrawPhone || userData.phone;
-  
-  if (!phoneNumber) {
-    showError('Please set your phone number first');
-    return;
-  }
-
-  try {
-    setIsProcessing(true);
-    showLoading('Processing withdrawal...', 'withdraw-processing');
-
-    // Format phone for M-Pesa
-    const formattedPhone = formatPhoneTo254(phoneNumber);
-    
-    console.log('Processing withdrawal:', {
-      userId: userData.user_id,
-      amount,
-      currentBalance: userData.balance,
-      phone: formattedPhone
-    });
-
-    // 1. Call B2C API to send money
-    const withdrawResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone_number: formattedPhone,
-        amount: amount.toString(),
-        command_id: 'BusinessPayment',
-        remarks: 'Withdrawal from FanClash',
-        occasion: 'Cash Withdrawal'
-      }),
-    });
-
-    const withdrawResult = await withdrawResponse.json();
-    console.log('B2C Withdrawal Response:', withdrawResult);
-
-    // Check API response
-    if (!withdrawResponse.ok) {
-      const errorMessage = withdrawResult.error || 
-                          withdrawResult.response_description || 
-                          'Withdrawal request failed';
-      throw new Error(errorMessage);
-    }
-
-    // Check M-Pesa response code
-    if (withdrawResult.response_code !== "0" && withdrawResult.response_code !== "0.00") {
-      // Handle specific M-Pesa error codes
-      let errorMsg = withdrawResult.response_description || 'M-Pesa transaction failed';
-      
-      // Common B2C errors
-      if (errorMsg.includes('PIN') || errorMsg.includes('pin')) {
-        errorMsg = 'Business account error. Please contact support.';
-      } else if (errorMsg.includes('balance') || errorMsg.includes('insufficient')) {
-        errorMsg = 'Service temporarily unavailable. Please try again later.';
-      } else if (errorMsg.includes('limit') || errorMsg.includes('exceeded')) {
-        errorMsg = 'Daily limit reached. Please try a smaller amount or try tomorrow.';
-      }
-      
-      throw new Error(errorMsg);
-    }
-
-    // 2. SUCCESS - M-Pesa accepted the request
-    toast.success('✓ Withdrawal initiated successfully!', {
-      id: 'withdraw-processing',
-      duration: 3000,
-      position: 'top-center',
-      style: {
-        background: 'rgba(16, 185, 129, 0.95)',
-        color: 'white',
-        fontSize: '12px',
-        padding: '8px 16px',
-        borderRadius: '8px',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(16, 185, 129, 0.3)'
-      },
-    });
-
-    // 3. Update user balance immediately (optimistic update)
-    const newBalance = userData.balance - amount;
-    console.log(`Updating balance: ${userData.balance} - ${amount} = ${newBalance}`);
-
-    showLoading('Updating balance...', 'update-withdraw-balance');
-    
-    const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: userData.user_id,
-        balance: newBalance
-      }),
-    });
-
-    console.log('Balance update status:', updateResponse.status);
-    
-    if (updateResponse.ok) {
-      const updatedUser = await updateResponse.json();
-      console.log('✅ Balance update successful:', updatedUser);
-      
-      // Update local data
-      const updatedLocalData = { 
-        ...userData, 
-        balance: updatedUser.balance || newBalance,
-      };
-      localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
-      setUserData(updatedLocalData);
-      
-      // Add to withdrawal history
-      const withdrawalRecord = {
-        id: `withdraw_${Date.now()}`,
-        amount,
-        phone: formattedPhone,
-        timestamp: new Date().toISOString(),
-        status: 'processing',
-        conversation_id: withdrawResult.conversation_id,
-        originator_conversation_id: withdrawResult.originator_conversation_id,
-        response_code: withdrawResult.response_code
-      };
-      
-      setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
-      
-      // Show success
-      setRecentTransaction(-amount);
-      setTimeout(() => setRecentTransaction(null), 3000);
-      
-      showSuccess(`Withdrawal of Ksh ${amount.toLocaleString()} processing! You will receive money shortly.`);
-      setWithdrawAmount('');
-      setCurrentPage('view');
-      
-      // 4. IMPORTANT: Set up a webhook listener or poll for transaction status
-      // This is where you should check if the money was actually sent
-      checkWithdrawalStatus(withdrawResult.conversation_id, amount);
-      
-    } else {
-      const errorText = await updateResponse.text();
-      console.error('Balance update failed:', errorText);
-      
-      // Even if balance update fails, the money might have been sent
-      // So we should still show success but warn about balance sync
-      toast.warning('Withdrawal sent but balance update failed. Contact support.', {
-        duration: 5000,
-      });
-      
-      // Add to history anyway
-      const withdrawalRecord = {
-        id: `withdraw_${Date.now()}`,
-        amount,
-        phone: formattedPhone,
-        timestamp: new Date().toISOString(),
-        status: 'sent_balance_error',
-        conversation_id: withdrawResult.conversation_id
-      };
-      
-      setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
-    }
-
-  } catch (error) {
-    console.error('Withdrawal error:', error);
-    toast.dismiss('withdraw-processing');
-    toast.dismiss('update-withdraw-balance');
-    
-    // User-friendly error messages
-    let userMessage = error.message;
-    if (error.message.includes('Business account') || error.message.includes('PIN')) {
-      userMessage = 'Withdrawal service temporarily unavailable. Please try again later or contact support.';
-    }
-    
-    showError(userMessage);
-  } finally {
-    setIsProcessing(false);
-  }
-};
-
-// Helper function to check withdrawal status
-const checkWithdrawalStatus = async (conversationId, amount) => {
-  try {
-    // Wait a few seconds then check status
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    
-    const statusResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/status/${conversationId}`);
-    
-    if (statusResponse.ok) {
-      const status = await statusResponse.json();
-      console.log('Withdrawal status:', status);
-      
-      if (status.result_code === '0') {
-        // Transaction successful
-        toast.success(`✓ Ksh ${amount.toLocaleString()} sent to your M-Pesa!`, {
-          duration: 4000,
-        });
-        
-        // Update withdrawal history status
-        setWithdrawalHistory(prev => 
-          prev.map(w => 
-            w.conversation_id === conversationId 
-              ? { ...w, status: 'completed', completed_at: new Date().toISOString() }
-              : w
-          )
-        );
-      } else {
-        // Transaction failed - we should refund the user
-        toast.error('Withdrawal failed. Your balance will be refunded.', {
-          duration: 4000,
-        });
-        
-        // Call refund endpoint
-        await refundFailedWithdrawal(conversationId, amount);
-      }
-    }
-  } catch (error) {
-    console.log('Status check failed:', error);
-    // Silently fail - user already got initial confirmation
-  }
-};
-
-// Helper to refund if withdrawal fails
-const refundFailedWithdrawal = async (conversationId, amount) => {
-  try {
-    const refundResponse = await fetch(`${API_BASE_URL}/api/profile/refund-failed-withdrawal`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: userData.user_id,
-        conversation_id: conversationId,
-        amount: amount
-      }),
-    });
-    
-    if (refundResponse.ok) {
-      const updatedUser = await refundResponse.json();
-      setUserData(prev => ({ ...prev, balance: updatedUser.balance }));
-      
-      // Update withdrawal history
-      setWithdrawalHistory(prev => 
-        prev.map(w => 
-          w.conversation_id === conversationId 
-            ? { ...w, status: 'failed_refunded' }
-            : w
-        )
-      );
-    }
-  } catch (error) {
-    console.error('Refund failed:', error);
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   // Check if user has data
   const hasUserData = userData.username.trim() || userData.phone.trim();
@@ -901,22 +1044,27 @@ const refundFailedWithdrawal = async (conversationId, amount) => {
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-white text-[17px] font-bold leading-tight">
-                        {currentPage === 'view' ? 'Profile' : 
-                         currentPage === 'edit' ? (hasUserData ? 'Edit Profile' : 'Setup Profile') : 
+                        {currentPage === 'view' ? (isNewUser ? 'Welcome!' : 'Profile') : 
+                         currentPage === 'edit' ? (hasUserData && !isNewUser ? 'Edit Profile' : 'Setup Profile') : 
                          currentPage === 'deposit' ? 'Deposit Funds' : 'Withdraw Cash'}
                       </h2>
-                      {currentPage === 'view' && hasUserData && (
+                      {currentPage === 'view' && hasUserData && !isNewUser && (
                         <Sparkles className="h-3.5 w-3.5 text-emerald-300 animate-pulse" />
                       )}
                     </div>
-                    {currentPage === 'view' && userData.nickname && (
+                    {currentPage === 'view' && userData.nickname && !isNewUser && (
                       <p className="text-white/[0.6] text-[13px] leading-tight">
                         {userData.nickname}
                       </p>
                     )}
+                    {isNewUser && (
+                      <p className="text-white/[0.6] text-[13px] leading-tight">
+                        New user setup
+                      </p>
+                    )}
                   </div>
                 </div>
-                {currentPage === 'view' && hasUserData && (
+                {currentPage === 'view' && hasUserData && !isNewUser && (
                   <div className="flex items-center gap-2">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -952,138 +1100,199 @@ const refundFailedWithdrawal = async (conversationId, amount) => {
                     exit={{ opacity: 0, x: -20 }}
                     className="p-6"
                   >
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      {/* Balance Card */}
-                      <motion.div 
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-white/[0.05] border border-white/[0.1] rounded-xl p-5 backdrop-blur-sm shadow-lg shadow-black/[0.1]"
-                      >
-                        <div className="absolute top-3 right-3">
-                          <Wallet className="h-5 w-5 text-emerald-300 opacity-50" />
-                        </div>
-                        <div className="mb-2">
-                          <div className="text-[13px] text-white/[0.6] font-medium">Balance</div>
-                          <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
-                            Ksh {userData.balance.toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-emerald-400/70 mt-1">
-                            {isSyncing ? 'Syncing...' : 'Live from server'}
+                    {/* New User Welcome Screen */}
+                    {isNewUser ? (
+                      <div className="text-center py-8">
+                        <div className="relative inline-block mb-4">
+                          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 blur-xl rounded-full opacity-20" />
+                          <div className="relative p-5 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 shadow-xl shadow-emerald-500/20">
+                            <UserPlus className="h-10 w-10 text-white" />
                           </div>
                         </div>
+                        <h3 className="text-[20px] font-bold text-white mb-2">Welcome to FanClash!</h3>
+                        <p className="text-white/[0.6] text-sm mb-6 max-w-xs mx-auto">
+                          Create your profile to start betting and winning
+                        </p>
                         
-                        {/* Action Buttons */}
-                        <div className="space-y-2 mt-3">
+                        <div className="space-y-3">
                           <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setCurrentPage('deposit')}
-                            className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-emerald-500/[0.3]"
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setCurrentPage('edit')}
+                            className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl text-sm font-semibold hover:shadow-xl hover:shadow-emerald-500/20 transition-all"
                           >
-                            <ArrowUpRight className="h-4 w-4" />
-                            Add Funds
+                            Create New Profile
                           </motion.button>
                           
-                          {canWithdraw && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setCurrentPage('withdraw')}
-                              className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-blue-500/[0.3]"
-                            >
-                              <ArrowDownLeft className="h-4 w-4" />
-                              Withdraw Cash
-                            </motion.button>
-                          )}
-                        </div>
-                        
-                        {/* Recent transaction animation */}
-                        {recentTransaction && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mt-2 text-xs font-medium flex items-center gap-1"
-                            style={{
-                              color: recentTransaction > 0 ? '#10b981' : '#ef4444'
-                            }}
+                          <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={loadUserFromBackend}
+                            disabled={isSyncing}
+                            className="w-full py-3 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl text-sm font-medium hover:bg-white/[0.08] transition-all"
                           >
-                            {recentTransaction > 0 ? (
-                              <>
-                                <TrendingUp className="h-3 w-3" />
-                                + Ksh {Math.abs(recentTransaction).toLocaleString()}
-                              </>
-                            ) : (
-                              <>
-                                <TrendingUp className="h-3 w-3 rotate-180" />
-                                - Ksh {Math.abs(recentTransaction).toLocaleString()}
-                              </>
-                            )}
-                          </motion.div>
-                        )}
-                      </motion.div>
-
-                      {/* Bets Card */}
-                      <motion.div 
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative bg-white/[0.05] border border-white/[0.1] rounded-xl p-5 backdrop-blur-sm shadow-lg shadow-black/[0.1]"
-                      >
-                        <div className="absolute top-3 right-3">
-                          <Award className="h-5 w-5 text-emerald-300 opacity-50" />
-                        </div>
-                        <div className="text-[13px] text-white/[0.6] font-medium">Total Bets</div>
-                        <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
-                          {userData.number_of_bets}
-                        </div>
-                      </motion.div>
-                    </div>
-
-                    {/* User Info */}
-                    <div className="space-y-3">
-                      {[
-                        { icon: User, label: 'Username', field: 'username' },
-                        { icon: Phone, label: 'Phone', field: 'phone' },
-                        { icon: Hash, label: 'Nickname', field: 'nickname' },
-                        { icon: Trophy, label: 'Club Fan', field: 'club_fan' },
-                        { icon: Globe, label: 'Country Fan', field: 'country_fan' },
-                      ].map((item, index) => (
-                        <motion.div
-                          key={item.field}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          whileHover={{ scale: 1.01, x: 4 }}
-                          className="group p-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] hover:border-white/[0.2] transition-all cursor-default"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2.5 rounded-lg bg-white/[0.08] group-hover:scale-110 transition-transform`}>
-                              <item.icon className="h-4 w-4 text-emerald-300" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-[12px] text-white/[0.6] mb-0.5">{item.label}</div>
-                              <div className="text-[15px] font-medium text-white">
-                                {getDisplayValue(item.field as keyof UserData)}
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    {/* Sync Status */}
-                    {userData.user_id && (
-                      <div className="mt-6 pt-4 border-t border-white/[0.1]">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                            <span className="text-xs text-white/[0.6]">
-                              {isSyncing ? 'Syncing...' : 'Connected to server'}
-                            </span>
-                          </div>
-                          <span className="text-xs text-white/[0.5] font-mono">
-                            ID: {userData.user_id.substring(0, 8)}...
-                          </span>
+                            {isSyncing ? 'Checking...' : 'Already have an account?'}
+                          </motion.button>
                         </div>
                       </div>
+                    ) : (
+                      <>
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          {/* Balance Card */}
+                          <motion.div 
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            className="relative overflow-hidden bg-white/[0.05] border border-white/[0.1] rounded-xl p-5 backdrop-blur-sm shadow-lg shadow-black/[0.1]"
+                          >
+                            <div className="absolute top-3 right-3">
+                              <Wallet className="h-5 w-5 text-emerald-300 opacity-50" />
+                            </div>
+                            <div className="mb-2">
+                              <div className="text-[13px] text-white/[0.6] font-medium">Balance</div>
+                              <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
+                                Ksh {userData.balance.toLocaleString()}
+                              </div>
+                              <div className="text-[10px] text-emerald-400/70 mt-1">
+                                {isSyncing ? 'Syncing...' : 'Live from server'}
+                              </div>
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="space-y-2 mt-3">
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setCurrentPage('deposit')}
+                                className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-emerald-500/[0.3]"
+                              >
+                                <ArrowUpRight className="h-4 w-4" />
+                                Add Funds
+                              </motion.button>
+                              
+                              {canWithdraw && (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setCurrentPage('withdraw')}
+                                  className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-blue-500/[0.3]"
+                                >
+                                  <ArrowDownLeft className="h-4 w-4" />
+                                  Withdraw Cash
+                                </motion.button>
+                              )}
+                            </div>
+                            
+                            {/* Recent transaction animation */}
+                            {recentTransaction && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-2 text-xs font-medium flex items-center gap-1"
+                                style={{
+                                  color: recentTransaction > 0 ? '#10b981' : '#ef4444'
+                                }}
+                              >
+                                {recentTransaction > 0 ? (
+                                  <>
+                                    <TrendingUp className="h-3 w-3" />
+                                    + Ksh {Math.abs(recentTransaction).toLocaleString()}
+                                  </>
+                                ) : (
+                                  <>
+                                    <TrendingUp className="h-3 w-3 rotate-180" />
+                                    - Ksh {Math.abs(recentTransaction).toLocaleString()}
+                                  </>
+                                )}
+                              </motion.div>
+                            )}
+                          </motion.div>
+
+                          {/* Bets Card */}
+                          <motion.div 
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            className="relative bg-white/[0.05] border border-white/[0.1] rounded-xl p-5 backdrop-blur-sm shadow-lg shadow-black/[0.1]"
+                          >
+                            <div className="absolute top-3 right-3">
+                              <Award className="h-5 w-5 text-emerald-300 opacity-50" />
+                            </div>
+                            <div className="text-[13px] text-white/[0.6] font-medium">Total Bets</div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
+                              {userData.number_of_bets}
+                            </div>
+                          </motion.div>
+                        </div>
+
+                        {/* User Info */}
+                        <div className="space-y-3">
+                          {[
+                            { icon: User, label: 'Username', field: 'username' },
+                            { icon: Phone, label: 'Phone', field: 'phone' },
+                            { icon: Hash, label: 'Nickname', field: 'nickname' },
+                            { icon: Trophy, label: 'Club Fan', field: 'club_fan' },
+                            { icon: Globe, label: 'Country Fan', field: 'country_fan' },
+                          ].map((item, index) => (
+                            <motion.div
+                              key={item.field}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                              whileHover={{ scale: 1.01, x: 4 }}
+                              className="group p-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] hover:border-white/[0.2] transition-all cursor-default"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2.5 rounded-lg bg-white/[0.08] group-hover:scale-110 transition-transform`}>
+                                  <item.icon className="h-4 w-4 text-emerald-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-[12px] text-white/[0.6] mb-0.5">{item.label}</div>
+                                  <div className="text-[15px] font-medium text-white">
+                                    {getDisplayValue(item.field as keyof UserData)}
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+
+                        {/* User Actions Footer */}
+                        <div className="mt-6 pt-4 border-t border-white/[0.1]">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                                <span className="text-xs text-white/[0.6]">
+                                  {isSyncing ? 'Syncing...' : 'Connected to server'}
+                                </span>
+                              </div>
+                              <span className="text-xs text-white/[0.5] font-mono">
+                                ID: {userData.user_id?.substring(0, 8)}...
+                              </span>
+                            </div>
+                            
+                            <div className="flex gap-2 mt-2">
+                              <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={handleSwitchToNewUser}
+                                className="flex-1 py-2 bg-white/[0.05] border border-white/[0.15] text-white rounded-lg text-xs font-medium hover:bg-white/[0.08] transition-all"
+                              >
+                                Switch Account
+                              </motion.button>
+                              
+                              <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={handleLogout}
+                                disabled={isProcessing}
+                                className="flex-1 py-2 bg-red-500/[0.1] border border-red-500/[0.2] text-red-300 rounded-lg text-xs font-medium hover:bg-red-500/[0.2] transition-all flex items-center justify-center gap-1"
+                              >
+                                <LogOut className="h-3 w-3" />
+                                Logout
+                              </motion.button>
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </motion.div>
                 ) : currentPage === 'edit' ? (
@@ -1094,7 +1303,7 @@ const refundFailedWithdrawal = async (conversationId, amount) => {
                     exit={{ opacity: 0, x: -20 }}
                     className="p-6"
                   >
-                    {/* Edit Profile Content (same as before) */}
+                    {/* Edit Profile Content */}
                     <div className="space-y-4">
                       {[
                         { field: 'username', label: 'Username', placeholder: 'Enter username' },
@@ -1143,25 +1352,39 @@ const refundFailedWithdrawal = async (conversationId, amount) => {
 
                       {/* Save Button */}
                       <div className="sticky bottom-0 pt-4 pb-2 bg-gradient-to-t from-black/[0.5] via-transparent to-transparent">
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={handleSave}
-                          disabled={isProcessing}
-                          className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-[15px] font-semibold rounded-xl hover:shadow-xl hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
-                        >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="h-4 w-4" />
-                              {hasUserData ? 'Save Changes' : 'Create Profile'}
-                            </>
+                        <div className="flex gap-2">
+                          {isNewUser && (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                setCurrentPage('view');
+                              }}
+                              className="flex-1 py-3.5 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl hover:bg-white/[0.08] hover:border-white/[0.25] transition-all text-sm font-medium backdrop-blur-sm"
+                            >
+                              Cancel
+                            </motion.button>
                           )}
-                        </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handleSave}
+                            disabled={isProcessing}
+                            className={`${isNewUser ? 'flex-1' : 'w-full'} py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-[15px] font-semibold rounded-xl hover:shadow-xl hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 backdrop-blur-sm`}
+                          >
+                            {isProcessing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-4 w-4" />
+                                {isNewUser ? 'Create Profile' : 'Save Changes'}
+                              </>
+                            )}
+                          </motion.button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -1173,7 +1396,7 @@ const refundFailedWithdrawal = async (conversationId, amount) => {
                     exit={{ opacity: 0, x: -20 }}
                     className="p-6"
                   >
-                    {/* Deposit Content (same as before) */}
+                    {/* Deposit Content */}
                     <div className="text-center mb-6">
                       <div className="relative inline-block mb-3">
                         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 blur-xl rounded-full opacity-30" />

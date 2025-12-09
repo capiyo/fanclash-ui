@@ -58,7 +58,7 @@ const Fixtures = () => {
   const [sortBy, setSortBy] = useState<'date' | 'odds' | 'league'>('date');
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const API_BASE_URL = 'https://fanclash-api.onrender.com/api/games';
+  const API_BASE_URL = 'http://localhost:3000/api/games';
   const API_PROFILE_URL = 'https://fanclash-api.onrender.com/api/profile';
 
   const { toast } = useToast();
@@ -234,7 +234,7 @@ const Fixtures = () => {
   });
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans overflow-hidden max-w-full">
+    <div className="min-h-screen bg-black text-white font-sans max-w-full">
       {/* Mobile Header */}
       <div className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm border-b border-gray-800/50">
         <div className="px-4 py-3">
@@ -302,8 +302,8 @@ const Fixtures = () => {
         </div>
       </div>
 
-      {/* Mobile Main Content */}
-      <div className="flex-1 pb-20"> {/* Added padding for bottom nav */}
+      {/* Mobile Main Content - Scrollable Area */}
+      <div className="flex-1 pb-16"> {/* Reduced bottom padding */}
         {/* Mobile Filters & Stats */}
         <div className="p-3 border-b border-gray-800/50">
           <div className="flex items-center justify-between mb-3">
@@ -390,8 +390,8 @@ const Fixtures = () => {
           </div>
         </div>
 
-        {/* Mobile Match Cards List */}
-        <div className="p-3">
+        {/* Mobile Match Cards List - Scrollable Container */}
+        <div className="p-3 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="text-center">
