@@ -2,7 +2,7 @@ import {
   Heart, MessageCircle, Share2, Swords, Eye, Wallet, Coins, 
   CheckCircle, UserPlus, DollarSign, ShieldCheck, AlertCircle,
   Search, Home, BarChart3, Plus, ArrowUpDown, Loader2, Bookmark,
-  MoreVertical, XCircle, LogIn, ChevronDown, Filter
+  MoreVertical, XCircle, LogIn, ChevronDown, Filter, Trophy, Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -19,6 +19,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface PledgeData {
   amount: number;
@@ -57,6 +65,7 @@ interface UserData {
 }
 
 interface BetData {
+  _id?: string;
   // Pledge info
   pledge_id: string;
   
@@ -79,6 +88,7 @@ interface BetData {
   away_team: string;
   match_time: string;
   league: string;
+  sport_type?: string;
   
   // Bet details
   total_pot: number;
@@ -96,13 +106,15 @@ interface BetData {
 const PledgeCard = () => {
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [pledges, setPledges] = useState<PledgeData[]>([]);
+  const [userBets, setUserBets] = useState<BetData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingBets, setLoadingBets] = useState(false);
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState<'all' | 'available' | 'matched'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'payout'>('date');
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showBets, setShowBets] = useState(false);
   const API_BASE_URL = 'https://fanclash-api.onrender.com';
 
   const { toast } = useToast();
@@ -169,6 +181,31 @@ const PledgeCard = () => {
     loadPledges();
   }, []);
 
+  // Load user's active bets
+  const loadUserBets = async () => {
+    if (!currentUser?.id) return;
+    
+    try {
+      setLoadingBets(true);
+      const userId = currentUser.id || currentUser.user_id;
+      
+      const response = await fetch(`${API_BASE_URL}/api/bets/user/${userId}`);
+      if (!response.ok) throw new Error("Failed to fetch user bets");
+      
+      const data = await response.json();
+      setUserBets(data.filter((bet: BetData) => bet.status === 'active'));
+    } catch (err) {
+      console.error("Error loading user bets:", err);
+      toast({
+        title: "Error",
+        description: "Failed to load your bets",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingBets(false);
+    }
+  };
+
   // Demo login
   const handleDemoLogin = () => {
     const demoUser: UserData = {
@@ -203,6 +240,43 @@ const PledgeCard = () => {
       description: "You have been logged out",
       className: "bg-gray-800 border-gray-700 text-gray-300"
     });
+  };
+
+  // Complete a bet
+  const handleCompleteBet = async (betId: string, winningSelection: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/bets/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ betId, winningSelection }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to complete bet");
+      }
+
+      const result = await response.json();
+      
+      // Refresh user bets and pledges
+      loadUserBets();
+      
+      toast({
+        title: "✅ Bet Completed!",
+        description: `Winner: ${result.bet.winner_username}`,
+        className: "bg-emerald-500/20 border-emerald-500 text-emerald-500",
+        duration: 3000
+      });
+
+    } catch (error: any) {
+      console.error("Error completing bet:", error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+        duration: 3000
+      });
+    }
   };
 
   // Filter and sort pledges
@@ -275,6 +349,18 @@ const PledgeCard = () => {
                 className="p-2 text-gray-400 hover:text-emerald-500"
               >
                 <Search className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowBets(true);
+                  loadUserBets();
+                }}
+                className="p-2 text-gray-400 hover:text-emerald-500"
+              >
+                <Trophy className="w-4 h-4" />
               </Button>
               
               {currentUser && (
@@ -451,6 +537,7 @@ const PledgeCard = () => {
                       pledge={pledge}
                       currentUser={currentUser}
                       refreshPledges={() => window.location.reload()}
+                      onCompleteBet={handleCompleteBet}
                     />
                   </motion.div>
                 ))}
@@ -459,6 +546,52 @@ const PledgeCard = () => {
           </div>
         </ScrollArea>
       </div>
+
+      {/* Active Bets Dialog */}
+      <Dialog open={showBets} onOpenChange={setShowBets}>
+        <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-emerald-500" />
+              Your Active Bets
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Manage and complete your ongoing bets
+            </DialogDescription>
+          </DialogHeader>
+          
+          {loadingBets ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+            </div>
+          ) : userBets.length === 0 ? (
+            <div className="text-center py-8">
+              <Clock className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400">No active bets found</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {userBets.map((bet) => (
+                <ActiveBetCard 
+                  key={bet._id} 
+                  bet={bet} 
+                  currentUser={currentUser}
+                  onComplete={handleCompleteBet}
+                />
+              ))}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button
+              onClick={() => setShowBets(false)}
+              className="w-full border-gray-800 text-gray-400"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/95 border-t border-gray-800/50 z-40">
@@ -493,9 +626,10 @@ interface P2PBetCardProps {
   pledge: PledgeData;
   currentUser: UserData;
   refreshPledges: () => void;
+  onCompleteBet: (betId: string, winningSelection: string) => Promise<void>;
 }
 
-function P2PBetCard({ pledge, currentUser, refreshPledges }: P2PBetCardProps) {
+function P2PBetCard({ pledge, currentUser, refreshPledges, onCompleteBet }: P2PBetCardProps) {
   const [isBetting, setIsBetting] = useState(false);
   const [betAmount, setBetAmount] = useState("");
   const [betSelection, setBetSelection] = useState("");
@@ -933,6 +1067,134 @@ function P2PBetCard({ pledge, currentUser, refreshPledges }: P2PBetCardProps) {
           <Bookmark className="w-3 h-3" />
         </Button>
       </div>
+    </div>
+  );
+}
+
+// Active Bet Card Component
+interface ActiveBetCardProps {
+  bet: BetData;
+  currentUser: UserData;
+  onComplete: (betId: string, winningSelection: string) => Promise<void>;
+}
+
+function ActiveBetCard({ bet, currentUser, onComplete }: ActiveBetCardProps) {
+  const [loading, setLoading] = useState(false);
+  const [showWinnerDialog, setShowWinnerDialog] = useState(false);
+  const { toast } = useToast();
+
+  const isStarter = currentUser.id === bet.starter_id || 
+                    currentUser.user_id === bet.starter_id;
+
+  const opponent = isStarter 
+    ? { username: bet.finisher_username, selection: bet.finisher_selection }
+    : { username: bet.starter_username, selection: bet.starter_selection };
+
+  const handleWinnerSelection = async (winningSelection: string) => {
+    setLoading(true);
+    try {
+      await onComplete(bet._id!, winningSelection);
+      setShowWinnerDialog(false);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-700/50">
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <h4 className="font-bold text-sm">{bet.home_team} vs {bet.away_team}</h4>
+          <p className="text-xs text-gray-400">{bet.league}</p>
+        </div>
+        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-[10px]">
+          Active
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <p className="text-xs text-gray-500">Your Bet</p>
+          <p className="text-sm font-bold">
+            {isStarter ? bet.starter_selection : bet.finisher_selection}
+          </p>
+          <p className="text-xs text-emerald-400">
+            Ksh {isStarter ? bet.starter_amount.toLocaleString() : bet.finisher_amount.toLocaleString()}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Opponent</p>
+          <p className="text-sm font-bold">{opponent.username}</p>
+          <p className="text-xs text-gray-400">
+            Bet: {opponent.selection === 'home_team' ? bet.home_team : 
+                  opponent.selection === 'away_team' ? bet.away_team : 'Draw'}
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-gray-900/50 rounded p-2 mb-3">
+        <div className="flex justify-between text-xs">
+          <span className="text-gray-400">Total Pot:</span>
+          <span className="font-bold text-emerald-400">Ksh {bet.total_pot.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <Button
+        onClick={() => setShowWinnerDialog(true)}
+        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-sm py-2"
+        disabled={loading}
+      >
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        ) : (
+          <Trophy className="w-4 h-4 mr-2" />
+        )}
+        Complete Bet
+      </Button>
+
+      {/* Winner Selection Dialog */}
+      <Dialog open={showWinnerDialog} onOpenChange={setShowWinnerDialog}>
+        <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Select Match Result</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Who won the match?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-2">
+            <Button
+              onClick={() => handleWinnerSelection('home_team')}
+              className="w-full justify-between bg-gray-800 hover:bg-gray-700"
+            >
+              <span>{bet.home_team} Win</span>
+            </Button>
+            <Button
+              onClick={() => handleWinnerSelection('away_team')}
+              className="w-full justify-between bg-gray-800 hover:bg-gray-700"
+            >
+              <span>{bet.away_team} Win</span>
+            </Button>
+            <Button
+              onClick={() => handleWinnerSelection('draw')}
+              className="w-full justify-between bg-gray-800 hover:bg-gray-700"
+            >
+              <span>Draw</span>
+            </Button>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              onClick={() => setShowWinnerDialog(false)}
+              className="border-gray-800 text-gray-400"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

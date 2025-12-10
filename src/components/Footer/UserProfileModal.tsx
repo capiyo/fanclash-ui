@@ -403,7 +403,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
     }
   };
 
-  // Handle deposit
+  // Handle deposit with STK push verification
   const handleDeposit = async () => {
     if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
       showError('Enter valid amount');
@@ -448,6 +448,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         throw new Error('Invalid phone number format');
       }
 
+      // Step 1: Initiate STK push
       const stkResponse = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -462,7 +463,14 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       const stkResult = await stkResponse.json();
 
       if (!stkResponse.ok || !stkResult.success) {
-        throw new Error(stkResult.error || stkResult.message || 'M-Pesa payment failed');
+        throw new Error(stkResult.error || stkResult.message || 'M-Pesa payment initiation failed');
+      }
+
+      // Get the CheckoutRequestID from the response
+      const checkoutRequestID = stkResult.CheckoutRequestID || stkResult.checkoutRequestID;
+      
+      if (!checkoutRequestID) {
+        throw new Error('Failed to get payment reference. Please try again.');
       }
 
       toast.success('Payment request sent! Check your phone', {
@@ -470,8 +478,79 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         duration: 3000,
       });
 
+      // Step 2: Wait a bit for user to complete the payment
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      // Step 3: Poll for payment confirmation
+      showLoading('Confirming payment...', 'confirm-payment');
+      
+      let paymentConfirmed = false;
+      let attempts = 0;
+      const maxAttempts = 10; // Try for 20 seconds (10 attempts * 2 seconds)
+
+      while (attempts < maxAttempts && !paymentConfirmed) {
+        try {
+          const confirmationResponse = await fetch(
+            `${API_BASE_URL}/api/mpesa/stk-query`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                checkout_request_id: checkoutRequestID
+              }),
+            }
+          );
+
+          const confirmationResult = await confirmationResponse.json();
+          
+          // Handle different response formats
+          const resultCode = confirmationResult.ResultCode || 
+                           confirmationResult.resultCode || 
+                           confirmationResult.response_code;
+          
+          if (resultCode === "0" || resultCode === 0 || resultCode === "0.00") {
+            // Payment successful!
+            paymentConfirmed = true;
+            toast.success('Payment confirmed!', {
+              id: 'confirm-payment',
+              duration: 2000,
+            });
+          } else if (resultCode === "1032" || resultCode === "17" || resultCode === "1") {
+            // Payment cancelled by user or still processing
+            // "1" means still processing, "1032" or "17" means cancelled
+            if (resultCode === "1032" || resultCode === "17") {
+              throw new Error('Payment cancelled by user');
+            }
+            // If resultCode is "1", continue polling
+          } else {
+            // Other error
+            const errorMsg = confirmationResult.ResultDesc || 
+                           confirmationResult.resultDesc || 
+                           confirmationResult.response_description ||
+                           'Payment failed or was declined';
+            throw new Error(errorMsg);
+          }
+        } catch (error) {
+          if (error.message.includes('cancelled') || error.message.includes('failed') || 
+              error.message.includes('declined')) {
+            throw error;
+          }
+          // If it's a network error, continue polling
+          console.log(`Polling attempt ${attempts + 1} failed:`, error.message);
+        }
+
+        if (!paymentConfirmed) {
+          // Wait 2 seconds before next poll
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          attempts++;
+        }
+      }
+
+      if (!paymentConfirmed) {
+        throw new Error('Payment timeout. Please check your M-Pesa and try again.');
+      }
+
+      // Step 4: Only update balance AFTER successful confirmation
       if (userData.phone !== phoneNumber) {
         const updatedLocalData = { 
           ...userData, 
@@ -483,7 +562,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
       const newBalance = userData.balance + amount;
 
-      showLoading('Processing payment...', 'update-balance');
+      showLoading('Updating balance...', 'update-balance');
       
       const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
         method: 'POST',
@@ -510,14 +589,30 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         setDepositAmount('');
         setCurrentPage('view');
       } else {
+        // If balance update fails but payment went through, this is a critical error
         const errorText = await updateResponse.text();
         console.error('Balance update failed:', errorText);
-        throw new Error('Failed to update balance. Please try again.');
+        
+        // Log this error (in production, send to error tracking service)
+        console.error('CRITICAL: Payment succeeded but balance update failed', {
+          userId,
+          amount,
+          newBalance,
+          error: errorText
+        });
+        
+        toast.error('Payment successful but balance update failed. Please contact support.', {
+          duration: 5000,
+        });
+        
+        // Sync with backend to get correct balance
+        await syncFromBackend(false);
       }
 
     } catch (error) {
       console.error('Deposit error:', error);
       toast.dismiss('deposit-processing');
+      toast.dismiss('confirm-payment');
       toast.dismiss('update-balance');
       showError(error instanceof Error ? error.message : 'Payment failed. Please try again.');
     } finally {
@@ -578,8 +673,17 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         throw new Error(errorMessage);
       }
 
-      if (withdrawResult.response_code !== "0" && withdrawResult.response_code !== "0.00") {
-        let errorMsg = withdrawResult.response_description || 'M-Pesa transaction failed';
+      // Check for various successful response codes
+      const responseCode = withdrawResult.response_code || withdrawResult.ResponseCode;
+      const isSuccess = responseCode === "0" || 
+                       responseCode === 0 || 
+                       responseCode === "0.00" ||
+                       (withdrawResult.Result && withdrawResult.Result.ResultCode === "0");
+
+      if (!isSuccess) {
+        let errorMsg = withdrawResult.response_description || 
+                      withdrawResult.Result?.ResultDesc || 
+                      'M-Pesa transaction failed';
         throw new Error(errorMsg);
       }
 
@@ -1188,7 +1292,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                         <div className="flex items-start gap-2">
                           <Shield className="h-4 w-4 text-emerald-300 mt-0.5 flex-shrink-0" />
                           <p className="text-[11px] text-white/[0.7]">
-                            You'll receive an M-Pesa prompt on your phone.
+                            You'll receive an M-Pesa prompt on your phone. Payment must be confirmed before balance is updated.
                           </p>
                         </div>
                       </div>
