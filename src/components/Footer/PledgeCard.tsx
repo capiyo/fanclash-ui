@@ -2,7 +2,7 @@ import {
   Heart, MessageCircle, Share2, Swords, Eye, Wallet, Coins, 
   CheckCircle, UserPlus, DollarSign, ShieldCheck, AlertCircle,
   Search, Home, BarChart3, Plus, ArrowUpDown, Loader2, Bookmark,
-  MoreVertical, XCircle, LogIn
+  MoreVertical, XCircle, LogIn, ChevronDown, Filter
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -12,6 +12,13 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface PledgeData {
   amount: number;
@@ -49,6 +56,43 @@ interface UserData {
   numberOfBets?: number;
 }
 
+interface BetData {
+  // Pledge info
+  pledge_id: string;
+  
+  // Starter info
+  starter_id: string;
+  starter_username: string;
+  starter_selection: string;
+  starter_amount: number;
+  starter_team: string;
+  
+  // Finisher info
+  finisher_id: string;
+  finisher_username: string;
+  finisher_selection: string;
+  finisher_amount: number;
+  finisher_team: string;
+  
+  // Match info
+  home_team: string;
+  away_team: string;
+  match_time: string;
+  league: string;
+  
+  // Bet details
+  total_pot: number;
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  
+  // Winner info
+  winner_id?: string;
+  winner_username?: string;
+  winning_selection?: string;
+  
+  // Timestamps
+  created_at: string;
+}
+
 const PledgeCard = () => {
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [pledges, setPledges] = useState<PledgeData[]>([]);
@@ -58,6 +102,7 @@ const PledgeCard = () => {
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'payout'>('date');
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const API_BASE_URL = 'https://fanclash-api.onrender.com';
 
   const { toast } = useToast();
@@ -65,24 +110,15 @@ const PledgeCard = () => {
   // Load user from localStorage
   useEffect(() => {
     const loadUser = () => {
-      console.log("🔍 LOADING USER FROM LOCALSTORAGE...");
       const userString = localStorage.getItem('userProfile');
       
       if (userString) {
         try {
           const user = JSON.parse(userString);
-          console.log("👤 USER LOADED:", {
-            id: user.id,
-            user_id: user.user_id,
-            username: user.username,
-            phone: user.phone
-          });
           setCurrentUser(user);
         } catch (error) {
-          console.log("❌ ERROR PARSING USER:", error);
+          console.error("Error parsing user:", error);
         }
-      } else {
-        console.log("❌ NO USER IN LOCALSTORAGE");
       }
     };
 
@@ -94,13 +130,11 @@ const PledgeCard = () => {
     const loadPledges = async () => {
       try {
         setLoading(true);
-        console.log("📡 FETCHING PLEDGES...");
         
         const response = await fetch(`${API_BASE_URL}/api/pledges`);
         if (!response.ok) throw new Error("Failed to fetch pledges");
         
         const data = await response.json();
-        console.log("✅ PLEDGES LOADED:", data.length, "items");
         
         // Format pledges data
         const formattedPledges = data.map((item: any) => ({
@@ -125,7 +159,7 @@ const PledgeCard = () => {
         
         setPledges(formattedPledges);
       } catch (err) {
-        console.error("🚨 ERROR LOADING PLEDGES:", err);
+        console.error("Error loading pledges:", err);
         setError("Failed to load P2P bets");
       } finally {
         setLoading(false);
@@ -137,7 +171,6 @@ const PledgeCard = () => {
 
   // Demo login
   const handleDemoLogin = () => {
-    console.log("🎮 DEMO LOGIN CLICKED");
     const demoUser: UserData = {
       id: "user_1765280845190_cmzb4bk6z",
       user_id: "user_1765280845190_cmzb4bk6z",
@@ -153,8 +186,6 @@ const PledgeCard = () => {
     localStorage.setItem('userProfile', JSON.stringify(demoUser));
     setCurrentUser(demoUser);
     
-    console.log("✅ DEMO USER SET:", demoUser);
-    
     toast({
       title: "Demo Mode Activated",
       description: "You're now logged in as Capiyo",
@@ -164,10 +195,8 @@ const PledgeCard = () => {
 
   // Logout
   const handleLogout = () => {
-    console.log("🚪 LOGGING OUT...");
     localStorage.removeItem('userProfile');
     setCurrentUser(null);
-    console.log("✅ USER LOGGED OUT");
     
     toast({
       title: "Logged Out",
@@ -220,12 +249,6 @@ const PledgeCard = () => {
             <LogIn className="w-5 h-5 mr-2" />
             Login with Demo Account
           </Button>
-          
-          <div className="text-center">
-            <p className="text-xs text-gray-500">
-              Click to login with demo account
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -286,7 +309,7 @@ const PledgeCard = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <Input
                     type="text"
-                    placeholder="Search bets..."
+                    placeholder="Search teams or users..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 bg-gray-900/50 border-gray-800 rounded-full text-sm text-white placeholder-gray-500"
@@ -299,9 +322,9 @@ const PledgeCard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="h-[calc(100vh-144px)] overflow-y-auto pb-16">
-        {/* Filters */}
-        <div className="p-3 border-b border-gray-800/50 bg-black">
+      <div className="h-[calc(100vh-144px)]">
+        {/* Filters Section */}
+        <div className="p-3 border-b border-gray-800/50 bg-black sticky top-[73px] z-40">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-bold text-white">P2P Challenges</h1>
             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
@@ -309,7 +332,8 @@ const PledgeCard = () => {
             </Badge>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          {/* Filter Buttons */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
             <Button
               variant={activeFilter === 'all' ? 'default' : 'outline'}
               onClick={() => setActiveFilter('all')}
@@ -349,37 +373,91 @@ const PledgeCard = () => {
             >
               Matched
             </Button>
+            
+            {/* Sort Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-xs flex-shrink-0 border-gray-800 text-gray-400"
+                >
+                  <Filter className="w-3 h-3 mr-1" />
+                  Sort
+                  <ChevronDown className="w-3 h-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-gray-900 border-gray-800 text-white">
+                <DropdownMenuItem 
+                  onClick={() => setSortBy('date')}
+                  className={cn("text-xs", sortBy === 'date' && "text-emerald-400")}
+                >
+                  Newest First
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setSortBy('amount')}
+                  className={cn("text-xs", sortBy === 'amount' && "text-emerald-400")}
+                >
+                  Highest Stake
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setSortBy('payout')}
+                  className={cn("text-xs", sortBy === 'payout' && "text-emerald-400")}
+                >
+                  Highest Payout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        {/* Pledges List */}
-        <div className="p-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
-            </div>
-          ) : error ? (
-            <div className="text-center py-16">
-              <XCircle className="w-14 h-14 text-red-500 mx-auto mb-3" />
-              <p className="text-gray-400">{error}</p>
-            </div>
-          ) : sortedPledges.length === 0 ? (
-            <div className="text-center py-16">
-              <Swords className="w-16 h-16 text-emerald-500 mx-auto mb-3" />
-              <p className="text-gray-400">No bets found</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sortedPledges.map((pledge, index) => (
-                <P2PBetCard 
-                  key={pledge._id || index}
-                  pledge={pledge}
-                  currentUser={currentUser}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Scrollable Pledges List */}
+        <ScrollArea className="h-[calc(100vh-200px)]">
+          <div className="p-3">
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-16">
+                <XCircle className="w-14 h-14 text-red-500 mx-auto mb-3" />
+                <p className="text-gray-400">{error}</p>
+              </div>
+            ) : sortedPledges.length === 0 ? (
+              <div className="text-center py-16">
+                <Swords className="w-16 h-16 text-emerald-500 mx-auto mb-3" />
+                <p className="text-gray-400 mb-4">No bets found</p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setActiveFilter('all');
+                  }}
+                  className="border-gray-800 text-gray-400 text-xs"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3 pb-4">
+                {sortedPledges.map((pledge, index) => (
+                  <motion.div
+                    key={pledge._id || index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <P2PBetCard 
+                      pledge={pledge}
+                      currentUser={currentUser}
+                      refreshPledges={() => window.location.reload()}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       </div>
 
       {/* Bottom Navigation */}
@@ -392,7 +470,11 @@ const PledgeCard = () => {
               { icon: BarChart3, label: 'Stats' },
               { icon: Wallet, label: 'Wallet' }
             ].map((item, idx) => (
-              <Button key={idx} variant="ghost" className="text-gray-400 hover:text-emerald-500 p-2">
+              <Button 
+                key={idx} 
+                variant="ghost" 
+                className="text-gray-400 hover:text-emerald-500 p-2 flex-1"
+              >
                 <div className="flex flex-col items-center">
                   <item.icon className="w-5 h-5" />
                   <span className="text-[10px] mt-0.5">{item.label}</span>
@@ -410,24 +492,16 @@ const PledgeCard = () => {
 interface P2PBetCardProps {
   pledge: PledgeData;
   currentUser: UserData;
+  refreshPledges: () => void;
 }
 
-function P2PBetCard({ pledge, currentUser }: P2PBetCardProps) {
+function P2PBetCard({ pledge, currentUser, refreshPledges }: P2PBetCardProps) {
   const [isBetting, setIsBetting] = useState(false);
+  const [betAmount, setBetAmount] = useState("");
+  const [betSelection, setBetSelection] = useState("");
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
-  // Log IDs for debugging
-  useEffect(() => {
-    console.log("🎯 PLEDGE CARD DEBUG:");
-    console.log("👤 Current User ID:", currentUser.id);
-    console.log("👤 Current User USER_ID:", currentUser.user_id);
-    console.log("📋 Pledge Starter ID:", pledge.starter_id);
-    console.log("🔍 Comparison:", {
-      idMatch: currentUser.id === pledge.starter_id,
-      userIdMatch: currentUser.user_id === pledge.starter_id,
-      isStarter: currentUser.id === pledge.starter_id || currentUser.user_id === pledge.starter_id
-    });
-  }, [pledge, currentUser]);
+  const API_BASE_URL = 'https://fanclash-api.onrender.com';
 
   // Check if current user is the bet starter
   const isCurrentUserStarter = currentUser.id === pledge.starter_id || 
@@ -447,40 +521,181 @@ function P2PBetCard({ pledge, currentUser }: P2PBetCardProps) {
     }
   };
 
-  const acceptBet = () => {
-    console.log("🎯 ACCEPT BET CLICKED");
-    console.log("👤 User is starter?", isCurrentUserStarter);
-    
-    if (isCurrentUserStarter) {
+  const getOppositeSelection = () => {
+    if (pledge.selection === "home_team") return "away_team";
+    if (pledge.selection === "away_team") return "home_team";
+    return "draw";
+  };
+
+  const acceptBet = async () => {
+    if (!betAmount || !betSelection) {
       toast({
-        title: "Cannot Accept Your Own Bet",
-        description: "You cannot accept your own P2P challenge",
+        title: "Incomplete Bet",
+        description: "Select your prediction and enter stake",
         variant: "destructive"
       });
       return;
     }
 
-    toast({
-      title: "Bet Accepted",
-      description: "Processing your bet...",
-      className: "bg-emerald-500/20 border-emerald-500 text-emerald-500"
-    });
+    const amount = Number(betAmount);
+    
+    if (amount <= 0 || isNaN(amount)) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid bet amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (amount > (currentUser?.balance || 0)) {
+      toast({
+        title: "Insufficient Balance",
+        description: `You need Ksh ${amount} but have Ksh ${currentUser?.balance || 0}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Prepare bet data to send to backend
+      const betData = {
+        // Pledge info
+        pledge_id: pledge._id,
+        
+        // Starter info (original bet creator)
+        starter_id: pledge.starter_id,
+        starter_username: pledge.username,
+        starter_selection: pledge.selection,
+        starter_amount: pledge.amount,
+        starter_team: pledge.selection === "home_team" ? pledge.home_team : 
+                     pledge.selection === "away_team" ? pledge.away_team : "draw",
+        
+        // Finisher info (current user accepting the bet)
+        finisher_id: currentUser.id || currentUser.user_id,
+        finisher_username: currentUser.username,
+        finisher_selection: betSelection,
+        finisher_amount: amount,
+        finisher_team: betSelection === "home_team" ? pledge.home_team : 
+                      betSelection === "away_team" ? pledge.away_team : "draw",
+        
+        // Match info
+        home_team: pledge.home_team,
+        away_team: pledge.away_team,
+        match_time: pledge.match_time || pledge.created_at,
+        league: pledge.league,
+        sport_type: pledge.sport_type,
+        
+        // Bet details
+        total_pot: pledge.amount + amount,
+        status: "active", // bet is now active/matched
+        
+        // Winner info (to be set when match completes)
+        winner_id: null,
+        winner_username: null,
+        winning_selection: null,
+        
+        // Odds
+        odds: pledge.odds || {
+          home_win: "2.00",
+          away_win: "2.00",
+          draw: "3.50"
+        }
+      };
+
+      console.log("📤 Sending bet data:", betData);
+
+      // 1. First update user balance (deduct bet amount)
+      const updateBalanceResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id || currentUser.user_id,
+          balance: (currentUser.balance || 0) - amount
+        }),
+      });
+
+      if (!updateBalanceResponse.ok) {
+        throw new Error("Failed to update balance");
+      }
+
+      // 2. Create the bet record
+      const createBetResponse = await fetch(`${API_BASE_URL}/api/bets/create_bets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(betData),
+      });
+
+      if (!createBetResponse.ok) {
+        // Refund if bet creation fails
+        await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUser.id || currentUser.user_id,
+            balance: currentUser.balance
+          }),
+        });
+        throw new Error("Failed to create bet");
+      }
+
+      // 3. Update pledge status to 'matched'
+      if (pledge._id) {
+        await fetch(`${API_BASE_URL}/api/pledges/${pledge._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'matched' }),
+        });
+      }
+
+      // Update local user balance
+      const updatedUser = { 
+        ...currentUser, 
+        balance: (currentUser.balance || 0) - amount 
+      };
+      localStorage.setItem('userProfile', JSON.stringify(updatedUser));
+      
+      toast({
+        title: "✅ Bet Accepted!",
+        description: `You've matched Ksh ${amount} with ${pledge.username}`,
+        className: "bg-emerald-500/20 border-emerald-500 text-emerald-500",
+        duration: 3000
+      });
+
+      // Reset and refresh
+      setIsBetting(false);
+      setBetAmount("");
+      setBetSelection("");
+      
+      setTimeout(() => {
+        refreshPledges();
+      }, 1500);
+
+    } catch (error: any) {
+      console.error("Error placing bet:", error);
+      toast({
+        title: "Bet Failed",
+        description: error.message || "Unable to place bet",
+        variant: "destructive",
+        duration: 3000
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const getSelectionLabel = (selection: string) => {
+    if (selection === "home_team") return `${pledge.home_team} Win`;
+    if (selection === "away_team") return `${pledge.away_team} Win`;
+    return "Draw";
+  };
+
+  const oppositeSelection = getOppositeSelection();
 
   return (
     <div className="w-full bg-gradient-to-br from-gray-900/30 to-black/30 rounded-xl border border-gray-800/50 p-3">
-      {/* Debug Info - Only show in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-2 p-2 bg-black/50 rounded text-xs font-mono">
-          <div className="text-emerald-400">Debug Info:</div>
-          <div>User ID: {currentUser.id}</div>
-          <div>Starter ID: {pledge.starter_id}</div>
-          <div className={isCurrentUserStarter ? 'text-red-400' : 'text-emerald-400'}>
-            Is Starter: {isCurrentUserStarter ? 'YES' : 'NO'}
-          </div>
-        </div>
-      )}
-      
       {/* Bet Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
@@ -537,6 +752,11 @@ function P2PBetCard({ pledge, currentUser }: P2PBetCardProps) {
               </span>
             </div>
             <p className="text-xs font-medium text-gray-300">{pledge.home_team}</p>
+            {pledge.selection === "home_team" && (
+              <p className="text-[10px] text-emerald-400 mt-1">
+                Ksh {pledge.amount.toLocaleString()}
+              </p>
+            )}
           </div>
           
           <div className="px-1">
@@ -552,8 +772,21 @@ function P2PBetCard({ pledge, currentUser }: P2PBetCardProps) {
               </span>
             </div>
             <p className="text-xs font-medium text-gray-300">{pledge.away_team}</p>
+            {pledge.selection === "away_team" && (
+              <p className="text-[10px] text-emerald-400 mt-1">
+                Ksh {pledge.amount.toLocaleString()}
+              </p>
+            )}
           </div>
         </div>
+
+        {pledge.selection === "draw" && (
+          <div className="text-center mt-2">
+            <p className="text-[10px] text-emerald-400">
+              Ksh {pledge.amount.toLocaleString()} on Draw
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Bet Details */}
@@ -578,65 +811,110 @@ function P2PBetCard({ pledge, currentUser }: P2PBetCardProps) {
       </div>
 
       {/* ACCEPT BUTTON - HIDDEN IF USER IS STARTER */}
-      {(() => {
-        console.log("🎯 RENDERING BUTTON FOR PLEDGE:", pledge._id);
-        console.log("   isCurrentUserStarter:", isCurrentUserStarter);
-        console.log("   pledge.status:", pledge.status);
-        console.log("   Should show button?:", !isCurrentUserStarter && pledge.status === 'active');
-        
-        if (!isCurrentUserStarter && pledge.status === 'active') {
-          return (
-            <>
-              {!isBetting ? (
+      {!isCurrentUserStarter && pledge.status === 'active' ? (
+        <>
+          {!isBetting ? (
+            <Button
+              onClick={() => setIsBetting(true)}
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold py-2.5"
+            >
+              <Swords className="w-4 h-4 mr-2" />
+              Accept Challenge
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              {/* Selection */}
+              <div>
+                <p className="text-[11px] text-white mb-2">Your Prediction</p>
                 <Button
-                  onClick={() => setIsBetting(true)}
-                  className="w-full bg-emerald-500/10 text-white rounded-lg font-bold py-2.5 
-                    border border-emerald-500/30 hover:bg-emerald-500/20"
+                  onClick={() => setBetSelection(oppositeSelection)}
+                  className={cn(
+                    "w-full justify-between",
+                    betSelection === oppositeSelection 
+                      ? "bg-emerald-500 text-white" 
+                      : "bg-gray-900/50 text-gray-300"
+                  )}
                 >
-                  <Swords className="w-4 h-4 mr-2" />
-                  Accept Challenge
+                  <span>{getSelectionLabel(oppositeSelection)}</span>
+                  <span className="text-emerald-400 text-xs">
+                    {pledge.odds?.[oppositeSelection as keyof typeof pledge.odds] || "2.00"}
+                  </span>
                 </Button>
-              ) : (
-                <div className="space-y-2">
+              </div>
+
+              {/* Amount */}
+              <div>
+                <p className="text-[11px] text-white mb-2">Your Stake (Ksh)</p>
+                <div className="flex gap-1">
+                  <div className="relative flex-1">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-500" />
+                    <input
+                      type="number"
+                      value={betAmount}
+                      onChange={(e) => setBetAmount(e.target.value)}
+                      placeholder="Enter amount..."
+                      className="w-full pl-8 pr-3 py-2 bg-gray-900/50 border border-gray-800 rounded-lg text-white text-xs"
+                      min="1"
+                      max={currentUser?.balance || 0}
+                    />
+                  </div>
                   <Button
-                    onClick={acceptBet}
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg py-2.5"
+                    onClick={() => setBetAmount(pledge.amount.toString())}
+                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-xs px-3"
                   >
-                    <ShieldCheck className="w-4 h-4 mr-2" />
-                    Place Bet
-                  </Button>
-                  <Button
-                    onClick={() => setIsBetting(false)}
-                    className="w-full border-gray-800 text-gray-400"
-                  >
-                    Cancel
+                    Match
                   </Button>
                 </div>
-              )}
-            </>
-          );
-        } else {
-          return (
-            <div className="text-center p-2.5 border border-gray-800/30 rounded-lg bg-gray-900/20">
-              <div className="flex items-center justify-center gap-1.5 text-gray-400">
-                {isCurrentUserStarter ? (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    <span className="text-xs">Your bet - waiting for challengers</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="text-xs">
-                      {pledge.status === 'matched' ? 'Bet already matched' : 'Bet not available'}
-                    </span>
-                  </>
-                )}
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Available: Ksh {currentUser.balance.toLocaleString()}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={acceptBet}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg py-2.5"
+                  disabled={loading || !betAmount || !betSelection}
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Place Bet
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => setIsBetting(false)}
+                  className="border-gray-800 text-gray-400 rounded-lg px-4"
+                >
+                  Cancel
+                </Button>
               </div>
             </div>
-          );
-        }
-      })()}
+          )}
+        </>
+      ) : (
+        <div className="text-center p-2.5 border border-gray-800/30 rounded-lg bg-gray-900/20">
+          <div className="flex items-center justify-center gap-1.5 text-gray-400">
+            {isCurrentUserStarter ? (
+              <>
+                <Eye className="w-4 h-4" />
+                <span className="text-xs">Your bet - waiting for challengers</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-xs">
+                  {pledge.status === 'matched' ? 'Bet already matched' : 'Bet not available'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Footer Actions */}
       <div className="flex items-center justify-between pt-2 border-t border-gray-800/30">
