@@ -7,30 +7,27 @@ import {
   Trophy, 
   X,
   Hash,
-  Globe,
   ArrowLeft,
   Save,
-  Sparkles,
-  TrendingUp,
-  Award,
-  CreditCard,
-  Loader2,
   Wallet,
-  Coins,
-  Shield,
-  RefreshCw,
+  Loader2,
+  CreditCard,
   ArrowUpRight,
   ArrowDownLeft,
-  CheckCircle,
   AlertCircle,
   LogOut,
-  UserPlus
+  UserPlus,
+  Globe,
+  Coins,
+  TrendingUp,
+  Sparkles,
+  Shield
 } from 'lucide-react';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogout?: () => void; // Add logout callback prop
+  onLogout?: () => void;
 }
 
 interface UserData {
@@ -42,13 +39,12 @@ interface UserData {
   balance: number;
   number_of_bets: number;
   user_id: string;
-  id?: string;
 }
 
 export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModalProps) => {
   const API_BASE_URL = 'https://fanclash-api.onrender.com';
   
-  const [currentPage, setCurrentPage] = useState<'view' | 'edit' | 'deposit' | 'withdraw' | 'login'>('view');
+  const [currentPage, setCurrentPage] = useState<'view' | 'edit' | 'deposit' | 'withdraw'>('view');
   const [isProcessing, setIsProcessing] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositPhone, setDepositPhone] = useState('');
@@ -57,7 +53,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
   const modalRef = useRef<HTMLDivElement>(null);
   const [recentTransaction, setRecentTransaction] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
   const [isNewUser, setIsNewUser] = useState(false);
 
   // Initialize empty user data
@@ -111,20 +106,17 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
     try {
       setIsSyncing(true);
       
-      // Check for session flag to force new user flow
       const isForcedNewUser = localStorage.getItem('forceNewUser') === 'true';
       const sessionToken = localStorage.getItem('sessionToken');
       const userProfile = localStorage.getItem('userProfile');
       
       if (isForcedNewUser || !sessionToken || !userProfile) {
-        // New user or session expired
         setIsNewUser(true);
         setCurrentPage('edit');
         localStorage.removeItem('forceNewUser');
         return;
       }
       
-      // Existing user - load from backend
       await loadUserFromBackend();
       
     } catch (error) {
@@ -144,9 +136,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       style: {
         background: 'rgba(239, 68, 68, 0.95)',
         color: 'white',
-        borderRadius: '10px',
-        border: '1px solid rgba(239, 68, 68, 0.3)',
-        backdropFilter: 'blur(10px)'
+        borderRadius: '8px',
       }
     });
   };
@@ -158,9 +148,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       style: {
         background: 'rgba(16, 185, 129, 0.95)',
         color: 'white',
-        borderRadius: '10px',
-        border: '1px solid rgba(16, 185, 129, 0.3)',
-        backdropFilter: 'blur(10px)'
+        borderRadius: '8px',
       }
     });
   };
@@ -173,9 +161,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       style: {
         background: 'rgba(59, 130, 246, 0.95)',
         color: 'white',
-        borderRadius: '10px',
-        border: '1px solid rgba(59, 130, 246, 0.3)',
-        backdropFilter: 'blur(10px)'
+        borderRadius: '8px',
       }
     });
   };
@@ -271,7 +257,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
           setWithdrawPhone(backendUser.phone);
           localStorage.setItem('userProfile', JSON.stringify(backendUser));
           
-          // Create session token
           const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           localStorage.setItem('sessionToken', sessionToken);
           
@@ -281,7 +266,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         }
       }
       
-      // No user found, set to new user mode
       setIsNewUser(true);
       setCurrentPage('edit');
       
@@ -350,8 +334,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         number_of_bets: userData.number_of_bets || 0
       };
 
-      console.log('Saving profile:', profileData);
-
       const response = await fetch(`${API_BASE_URL}/api/profile/create_profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -360,7 +342,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Profile saved:', result);
         
         const updatedData: UserData = {
           ...userData,
@@ -372,7 +353,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         setDepositPhone(updatedData.phone);
         setWithdrawPhone(updatedData.phone);
         
-        // Save to localStorage with session
         localStorage.setItem('userProfile', JSON.stringify(updatedData));
         const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem('sessionToken', sessionToken);
@@ -383,7 +363,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         setCurrentPage('view');
       } else {
         const errorText = await response.text();
-        console.error('Save failed, trying update...', errorText);
         
         const updateResponse = await fetch(`${API_BASE_URL}/api/profile/profiles/${userId}`, {
           method: 'PUT',
@@ -393,7 +372,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         
         if (updateResponse.ok) {
           const result = await updateResponse.json();
-          console.log('Profile updated:', result);
           
           const updatedData: UserData = {
             ...userData,
@@ -405,7 +383,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
           setDepositPhone(updatedData.phone);
           setWithdrawPhone(updatedData.phone);
           
-          // Save to localStorage with session
           localStorage.setItem('userProfile', JSON.stringify(updatedData));
           const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           localStorage.setItem('sessionToken', sessionToken);
@@ -471,13 +448,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         throw new Error('Invalid phone number format');
       }
 
-      console.log('Processing deposit:', {
-        userId,
-        currentBalance: userData.balance,
-        depositAmount: amount,
-        phone: formattedPhone
-      });
-
       const stkResponse = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -490,25 +460,14 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       });
 
       const stkResult = await stkResponse.json();
-      console.log('M-Pesa STK Response:', stkResult);
 
       if (!stkResponse.ok || !stkResult.success) {
         throw new Error(stkResult.error || stkResult.message || 'M-Pesa payment failed');
       }
 
-      toast.success('✓ Payment request sent! Check your phone', {
+      toast.success('Payment request sent! Check your phone', {
         id: 'deposit-processing',
         duration: 3000,
-        position: 'top-center',
-        style: {
-          background: 'rgba(16, 185, 129, 0.95)',
-          color: 'white',
-          fontSize: '12px',
-          padding: '8px 16px',
-          borderRadius: '8px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(16, 185, 129, 0.3)'
-        },
       });
 
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -523,7 +482,6 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       }
 
       const newBalance = userData.balance + amount;
-      console.log(`Updating balance: ${userData.balance} + ${amount} = ${newBalance}`);
 
       showLoading('Processing payment...', 'update-balance');
       
@@ -535,12 +493,9 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
           balance: newBalance
         }),
       });
-
-      console.log('Update balance response status:', updateResponse.status);
       
       if (updateResponse.ok) {
         const updatedUser = await updateResponse.json();
-        console.log('✅ Balance update successful:', updatedUser);
         
         const updatedLocalData = { 
           ...userData, 
@@ -579,19 +534,16 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
     const amount = Number(withdrawAmount);
     
-    // Check minimum withdrawal amount
     if (amount < 50) {
       showError('Minimum withdrawal is Ksh 50');
       return;
     }
 
-    // Check if user has enough balance
     if (userData.balance < amount) {
       showError(`Insufficient balance. You have Ksh ${userData.balance.toLocaleString()}`);
       return;
     }
 
-    // Use withdraw phone or user's phone
     const phoneNumber = withdrawPhone || userData.phone;
     
     if (!phoneNumber) {
@@ -603,17 +555,8 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       setIsProcessing(true);
       showLoading('Processing withdrawal...', 'withdraw-processing');
 
-      // Format phone for M-Pesa
       const formattedPhone = formatPhoneTo254(phoneNumber);
       
-      console.log('Processing withdrawal:', {
-        userId: userData.user_id,
-        amount,
-        currentBalance: userData.balance,
-        phone: formattedPhone
-      });
-
-      // 1. Call B2C API to send money
       const withdrawResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -627,9 +570,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       });
 
       const withdrawResult = await withdrawResponse.json();
-      console.log('B2C Withdrawal Response:', withdrawResult);
 
-      // Check API response
       if (!withdrawResponse.ok) {
         const errorMessage = withdrawResult.error || 
                           withdrawResult.response_description || 
@@ -637,42 +578,17 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         throw new Error(errorMessage);
       }
 
-      // Check M-Pesa response code
       if (withdrawResult.response_code !== "0" && withdrawResult.response_code !== "0.00") {
-        // Handle specific M-Pesa error codes
         let errorMsg = withdrawResult.response_description || 'M-Pesa transaction failed';
-        
-        // Common B2C errors
-        if (errorMsg.includes('PIN') || errorMsg.includes('pin')) {
-          errorMsg = 'Business account error. Please contact support.';
-        } else if (errorMsg.includes('balance') || errorMsg.includes('insufficient')) {
-          errorMsg = 'Service temporarily unavailable. Please try again later.';
-        } else if (errorMsg.includes('limit') || errorMsg.includes('exceeded')) {
-          errorMsg = 'Daily limit reached. Please try a smaller amount or try tomorrow.';
-        }
-        
         throw new Error(errorMsg);
       }
 
-      // 2. SUCCESS - M-Pesa accepted the request
-      toast.success('✓ Withdrawal initiated successfully!', {
+      toast.success('Withdrawal initiated successfully!', {
         id: 'withdraw-processing',
         duration: 3000,
-        position: 'top-center',
-        style: {
-          background: 'rgba(16, 185, 129, 0.95)',
-          color: 'white',
-          fontSize: '12px',
-          padding: '8px 16px',
-          borderRadius: '8px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(16, 185, 129, 0.3)'
-        },
       });
 
-      // 3. Update user balance immediately (optimistic update)
       const newBalance = userData.balance - amount;
-      console.log(`Updating balance: ${userData.balance} - ${amount} = ${newBalance}`);
 
       showLoading('Updating balance...', 'update-withdraw-balance');
       
@@ -684,14 +600,10 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
           balance: newBalance
         }),
       });
-
-      console.log('Balance update status:', updateResponse.status);
       
       if (updateResponse.ok) {
         const updatedUser = await updateResponse.json();
-        console.log('✅ Balance update successful:', updatedUser);
         
-        // Update local data
         const updatedLocalData = { 
           ...userData, 
           balance: updatedUser.balance || newBalance,
@@ -699,210 +611,39 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
         setUserData(updatedLocalData);
         
-        // Add to withdrawal history
-        const withdrawalRecord = {
-          id: `withdraw_${Date.now()}`,
-          amount,
-          phone: formattedPhone,
-          timestamp: new Date().toISOString(),
-          status: 'processing',
-          conversation_id: withdrawResult.conversation_id,
-          originator_conversation_id: withdrawResult.originator_conversation_id,
-          response_code: withdrawResult.response_code
-        };
-        
-        setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
-        
-        // Show success
         setRecentTransaction(-amount);
         setTimeout(() => setRecentTransaction(null), 3000);
-        
-        showSuccess(`Withdrawal of Ksh ${amount.toLocaleString()} processing! You will receive money shortly.`);
+        showSuccess(`Withdrawal of Ksh ${amount.toLocaleString()} processing!`);
         setWithdrawAmount('');
         setCurrentPage('view');
-        
-        // 4. IMPORTANT: Set up a webhook listener or poll for transaction status
-        // This is where you should check if the money was actually sent
-        checkWithdrawalStatus(withdrawResult.conversation_id, amount);
-        
       } else {
-        const errorText = await updateResponse.text();
-        console.error('Balance update failed:', errorText);
-        
-        // Even if balance update fails, the money might have been sent
-        // So we should still show success but warn about balance sync
         toast.warning('Withdrawal sent but balance update failed. Contact support.', {
           duration: 5000,
         });
-        
-        // Add to history anyway
-        const withdrawalRecord = {
-          id: `withdraw_${Date.now()}`,
-          amount,
-          phone: formattedPhone,
-          timestamp: new Date().toISOString(),
-          status: 'sent_balance_error',
-          conversation_id: withdrawResult.conversation_id
-        };
-        
-        setWithdrawalHistory(prev => [withdrawalRecord, ...prev]);
       }
 
     } catch (error) {
       console.error('Withdrawal error:', error);
       toast.dismiss('withdraw-processing');
       toast.dismiss('update-withdraw-balance');
-      
-      // User-friendly error messages
-      let userMessage = error.message;
-      if (error.message.includes('Business account') || error.message.includes('PIN')) {
-        userMessage = 'Withdrawal service temporarily unavailable. Please try again later or contact support.';
-      }
-      
-      showError(userMessage);
+      showError(error.message);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Helper function to check withdrawal status
-  const checkWithdrawalStatus = async (conversationId: string, amount: number) => {
-    try {
-      // Wait a few seconds then check status
-      await new Promise(resolve => setTimeout(resolve, 10000));
-      
-      const statusResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/status/${conversationId}`);
-      
-      if (statusResponse.ok) {
-        const status = await statusResponse.json();
-        console.log('Withdrawal status:', status);
-        
-        if (status.result_code === '0') {
-          // Transaction successful
-          toast.success(`✓ Ksh ${amount.toLocaleString()} sent to your M-Pesa!`, {
-            duration: 4000,
-          });
-          
-          // Update withdrawal history status
-          setWithdrawalHistory(prev => 
-            prev.map(w => 
-              w.conversation_id === conversationId 
-                ? { ...w, status: 'completed', completed_at: new Date().toISOString() }
-                : w
-            )
-          );
-        } else {
-          // Transaction failed - we should refund the user
-          toast.error('Withdrawal failed. Your balance will be refunded.', {
-            duration: 4000,
-          });
-          
-          // Call refund endpoint
-          await refundFailedWithdrawal(conversationId, amount);
-        }
-      }
-    } catch (error) {
-      console.log('Status check failed:', error);
-      // Silently fail - user already got initial confirmation
-    }
-  };
-
-  // Helper to refund if withdrawal fails
-  const refundFailedWithdrawal = async (conversationId: string, amount: number) => {
-    try {
-      const refundResponse = await fetch(`${API_BASE_URL}/api/profile/refund-failed-withdrawal`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userData.user_id,
-          conversation_id: conversationId,
-          amount: amount
-        }),
-      });
-      
-      if (refundResponse.ok) {
-        const updatedUser = await refundResponse.json();
-        setUserData(prev => ({ ...prev, balance: updatedUser.balance }));
-        
-        // Update withdrawal history
-        setWithdrawalHistory(prev => 
-          prev.map(w => 
-            w.conversation_id === conversationId 
-              ? { ...w, status: 'failed_refunded' }
-              : w
-          )
-        );
-      }
-    } catch (error) {
-      console.error('Refund failed:', error);
-    }
-  };
-
-  // COMPREHENSIVE LOGOUT FUNCTION
+  // Handle logout
   const handleLogout = async () => {
     try {
       setIsProcessing(true);
       showLoading('Logging out...', 'logout');
 
-      // 1. Clear all localStorage items
       localStorage.removeItem('userProfile');
       localStorage.removeItem('sessionToken');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userSession');
-      localStorage.setItem('forceNewUser', 'true'); // Force new user next time
+      localStorage.setItem('forceNewUser', 'true');
       
-      // 2. Clear sessionStorage
       sessionStorage.clear();
       
-      // 3. Clear all cookies
-      document.cookie.split(";").forEach((c) => {
-        document.cookie = c
-          .replace(/^ +/, "")
-          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/;domain=" + window.location.hostname);
-      });
-      
-      // 4. Clear IndexedDB databases
-      if ('indexedDB' in window) {
-        try {
-          const databases = await indexedDB.databases();
-          databases.forEach(db => {
-            if (db.name) {
-              indexedDB.deleteDatabase(db.name);
-            }
-          });
-        } catch (e) {
-          console.log('IndexedDB cleanup:', e);
-        }
-      }
-      
-      // 5. Clear service worker cache
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const registration of registrations) {
-            await registration.unregister();
-          }
-          
-          // Clear cache storage
-          if ('caches' in window) {
-            const cacheKeys = await caches.keys();
-            await Promise.all(cacheKeys.map(key => caches.delete(key)));
-          }
-        } catch (e) {
-          console.log('Service worker cleanup:', e);
-        }
-      }
-      
-      // 6. Clear application cache (if any)
-      if (window.applicationCache) {
-        try {
-          window.applicationCache.abort();
-        } catch (e) {
-          console.log('App cache cleanup:', e);
-        }
-      }
-      
-      // 7. Reset all state
       setUserData({
         username: '',
         phone: '',
@@ -921,27 +662,19 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       setWithdrawAmount('');
       setWithdrawPhone('');
       setRecentTransaction(null);
-      setWithdrawalHistory([]);
       
-      // 8. Notify parent component about logout
       if (onLogout) {
         onLogout();
       }
       
-      // 9. Show success and close modal
       toast.success('Successfully logged out!', {
         id: 'logout',
         duration: 3000,
       });
       
-      // 10. Force hard refresh to clear any cached state
-      setTimeout(() => {
-        window.location.reload(); // Full page reload to clear React state
-      }, 1000);
-      
     } catch (error) {
       console.error('Logout error:', error);
-      showError('Error during logout. Please refresh the page.');
+      showError('Error during logout.');
     } finally {
       setIsProcessing(false);
     }
@@ -1000,40 +733,40 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop with glass effect */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
       />
 
-      {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Modal - Positioned at bottom with zero margin */}
+      <div className="fixed inset-0 z-50 flex items-end justify-center p-0">
         <motion.div
           ref={modalRef}
-          initial={{ scale: 0.95, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 20 }}
-          transition={{ type: "spring", damping: 25 }}
-          className="w-full max-w-md"
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+          className="w-full"
         >
-          {/* Glass card */}
-          <div className="relative bg-gradient-to-br from-white/[0.05] to-white/[0.02] rounded-2xl shadow-2xl overflow-hidden border border-white/[0.15] backdrop-blur-[20px]">
+          {/* Main content with glass effect - NO borders */}
+          <div className="relative bg-gradient-to-br from-white/[0.08] to-white/[0.04] backdrop-blur-xl rounded-t-2xl overflow-hidden border-t border-white/[0.15]">
             
-            {/* Frosted glass effect overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-green-500/[0.03] pointer-events-none" />
+            {/* Glass effect overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-emerald-600/[0.03] pointer-events-none" />
             
-            {/* Header */}
-            <div className="relative px-6 py-4 border-b border-white/[0.15] backdrop-blur-sm">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.05] via-transparent to-green-500/[0.05] opacity-50" />
+            {/* Header with glass effect */}
+            <div className="relative px-4 py-3 border-b border-white/[0.15] backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.05] via-transparent to-emerald-600/[0.05] opacity-50" />
               <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleClose}
-                    className="h-9 w-9 rounded-full bg-white/[0.08] hover:bg-white/[0.12] flex items-center justify-center transition-colors backdrop-blur-sm border border-white/[0.15]"
+                    className="h-8 w-8 rounded-full bg-white/[0.1] hover:bg-white/[0.15] flex items-center justify-center backdrop-blur-sm border border-white/[0.15]"
                   >
                     {currentPage === 'view' ? (
                       <X className="h-4 w-4 text-white/[0.8]" />
@@ -1042,45 +775,39 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                     )}
                   </motion.button>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-white text-[17px] font-bold leading-tight">
+                    <div className="flex items-center gap-1">
+                      <h2 className="text-white text-sm font-bold">
                         {currentPage === 'view' ? (isNewUser ? 'Welcome!' : 'Profile') : 
                          currentPage === 'edit' ? (hasUserData && !isNewUser ? 'Edit Profile' : 'Setup Profile') : 
                          currentPage === 'deposit' ? 'Deposit Funds' : 'Withdraw Cash'}
                       </h2>
                       {currentPage === 'view' && hasUserData && !isNewUser && (
-                        <Sparkles className="h-3.5 w-3.5 text-emerald-300 animate-pulse" />
+                        <Sparkles className="h-3 w-3 text-emerald-300 animate-pulse" />
                       )}
                     </div>
-                    {currentPage === 'view' && userData.nickname && !isNewUser && (
-                      <p className="text-white/[0.6] text-[13px] leading-tight">
-                        {userData.nickname}
-                      </p>
-                    )}
-                    {isNewUser && (
-                      <p className="text-white/[0.6] text-[13px] leading-tight">
-                        New user setup
-                      </p>
-                    )}
                   </div>
                 </div>
                 {currentPage === 'view' && hasUserData && !isNewUser && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => syncFromBackend(true)}
                       disabled={isSyncing}
-                      className="p-2 bg-emerald-500/[0.1] border border-emerald-500/[0.3] rounded-full hover:bg-emerald-500/[0.2] transition-all backdrop-blur-sm"
+                      className="p-1.5 bg-emerald-500/[0.1] border border-emerald-500/[0.3] rounded-full hover:bg-emerald-500/[0.2] backdrop-blur-sm"
                       title="Sync with server"
                     >
-                      <RefreshCw className={`h-4 w-4 text-emerald-300 ${isSyncing ? 'animate-spin' : ''}`} />
+                      {isSyncing ? (
+                        <Loader2 className="h-3 w-3 text-emerald-300 animate-spin" />
+                      ) : (
+                        <TrendingUp className="h-3 w-3 text-emerald-300" />
+                      )}
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setCurrentPage('edit')}
-                      className="px-4 py-1.5 text-[13px] font-medium bg-emerald-500/[0.1] text-emerald-300 border border-emerald-500/[0.3] rounded-full hover:bg-emerald-500/[0.2] transition-all shadow-sm backdrop-blur-sm"
+                      className="px-3 py-1 text-xs font-medium bg-emerald-500/[0.1] text-emerald-300 border border-emerald-500/[0.3] rounded-full hover:bg-emerald-500/[0.2] backdrop-blur-sm"
                     >
                       Edit
                     </motion.button>
@@ -1090,7 +817,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
             </div>
 
             {/* Content */}
-            <div className="relative overflow-y-auto max-h-[70vh]">
+            <div className="overflow-y-auto max-h-[70vh]">
               <AnimatePresence mode="wait">
                 {currentPage === 'view' ? (
                   <motion.div
@@ -1098,30 +825,30 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="p-6"
+                    className="p-4"
                   >
                     {/* New User Welcome Screen */}
                     {isNewUser ? (
-                      <div className="text-center py-8">
-                        <div className="relative inline-block mb-4">
-                          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 blur-xl rounded-full opacity-20" />
-                          <div className="relative p-5 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 shadow-xl shadow-emerald-500/20">
-                            <UserPlus className="h-10 w-10 text-white" />
+                      <div className="text-center py-6">
+                        <div className="relative inline-block mb-3">
+                          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-emerald-600 blur-xl rounded-full opacity-20" />
+                          <div className="relative p-4 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-xl shadow-emerald-500/20">
+                            <UserPlus className="h-8 w-8 text-white" />
                           </div>
                         </div>
-                        <h3 className="text-[20px] font-bold text-white mb-2">Welcome to FanClash!</h3>
-                        <p className="text-white/[0.6] text-sm mb-6 max-w-xs mx-auto">
-                          Create your profile to start betting and winning
+                        <h3 className="text-lg font-bold text-white mb-2">Welcome!</h3>
+                        <p className="text-white/[0.6] text-sm mb-4">
+                          Create your profile to start betting
                         </p>
                         
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           <motion.button
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setCurrentPage('edit')}
-                            className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl text-sm font-semibold hover:shadow-xl hover:shadow-emerald-500/20 transition-all"
+                            className="w-full py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl text-sm font-semibold hover:shadow-xl hover:shadow-emerald-500/20 backdrop-blur-sm"
                           >
-                            Create New Profile
+                            Create Profile
                           </motion.button>
                           
                           <motion.button
@@ -1129,7 +856,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                             whileTap={{ scale: 0.98 }}
                             onClick={loadUserFromBackend}
                             disabled={isSyncing}
-                            className="w-full py-3 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl text-sm font-medium hover:bg-white/[0.08] transition-all"
+                            className="w-full py-2 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl text-sm hover:bg-white/[0.08] backdrop-blur-sm"
                           >
                             {isSyncing ? 'Checking...' : 'Already have an account?'}
                           </motion.button>
@@ -1137,72 +864,62 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                       </div>
                     ) : (
                       <>
-                        {/* Stats Cards */}
-                        <div className="grid grid-cols-2 gap-4 mb-6">
+                        {/* Stats Cards with glass effect */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
                           {/* Balance Card */}
                           <motion.div 
                             whileHover={{ scale: 1.02, y: -2 }}
-                            className="relative overflow-hidden bg-white/[0.05] border border-white/[0.1] rounded-xl p-5 backdrop-blur-sm shadow-lg shadow-black/[0.1]"
+                            className="relative overflow-hidden bg-white/[0.05] border border-white/[0.1] rounded-xl p-3 backdrop-blur-sm"
                           >
-                            <div className="absolute top-3 right-3">
-                              <Wallet className="h-5 w-5 text-emerald-300 opacity-50" />
+                            <div className="absolute top-2 right-2">
+                              <Wallet className="h-4 w-4 text-emerald-300 opacity-50" />
                             </div>
                             <div className="mb-2">
-                              <div className="text-[13px] text-white/[0.6] font-medium">Balance</div>
-                              <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
+                              <div className="text-xs text-white/[0.6] font-medium">Balance</div>
+                              <div className="text-xl font-bold bg-gradient-to-r from-emerald-300 to-emerald-400 bg-clip-text text-transparent">
                                 Ksh {userData.balance.toLocaleString()}
                               </div>
-                              <div className="text-[10px] text-emerald-400/70 mt-1">
-                                {isSyncing ? 'Syncing...' : 'Live from server'}
+                              <div className="text-[10px] text-emerald-400/70 mt-0.5">
+                                {isSyncing ? 'Syncing...' : 'Live'}
                               </div>
                             </div>
                             
-                            {/* Action Buttons */}
-                            <div className="space-y-2 mt-3">
-                              <motion.button
+                            {/* Text-only action buttons (no background) */}
+                            <div className="flex gap-2 mt-2">
+                              <motion.span
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setCurrentPage('deposit')}
-                                className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-emerald-500/[0.3]"
+                                className="text-xs font-medium text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1"
                               >
-                                <ArrowUpRight className="h-4 w-4" />
+                                <ArrowUpRight className="h-3 w-3" />
                                 Add Funds
-                              </motion.button>
+                              </motion.span>
                               
                               {canWithdraw && (
-                                <motion.button
+                                <motion.span
                                   whileHover={{ scale: 1.05 }}
                                   whileTap={{ scale: 0.95 }}
                                   onClick={() => setCurrentPage('withdraw')}
-                                  className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-blue-500/[0.3]"
+                                  className="text-xs font-medium text-blue-400 hover:text-blue-300 cursor-pointer flex items-center gap-1"
                                 >
-                                  <ArrowDownLeft className="h-4 w-4" />
-                                  Withdraw Cash
-                                </motion.button>
+                                  <ArrowDownLeft className="h-3 w-3" />
+                                  Withdraw
+                                </motion.span>
                               )}
                             </div>
                             
-                            {/* Recent transaction animation */}
+                            {/* Recent transaction */}
                             {recentTransaction && (
                               <motion.div
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="mt-2 text-xs font-medium flex items-center gap-1"
+                                className="mt-1 text-xs font-medium flex items-center gap-1"
                                 style={{
                                   color: recentTransaction > 0 ? '#10b981' : '#ef4444'
                                 }}
                               >
-                                {recentTransaction > 0 ? (
-                                  <>
-                                    <TrendingUp className="h-3 w-3" />
-                                    + Ksh {Math.abs(recentTransaction).toLocaleString()}
-                                  </>
-                                ) : (
-                                  <>
-                                    <TrendingUp className="h-3 w-3 rotate-180" />
-                                    - Ksh {Math.abs(recentTransaction).toLocaleString()}
-                                  </>
-                                )}
+                                {recentTransaction > 0 ? '+' : '-'} Ksh {Math.abs(recentTransaction).toLocaleString()}
                               </motion.div>
                             )}
                           </motion.div>
@@ -1210,19 +927,19 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                           {/* Bets Card */}
                           <motion.div 
                             whileHover={{ scale: 1.02, y: -2 }}
-                            className="relative bg-white/[0.05] border border-white/[0.1] rounded-xl p-5 backdrop-blur-sm shadow-lg shadow-black/[0.1]"
+                            className="relative bg-white/[0.05] border border-white/[0.1] rounded-xl p-3 backdrop-blur-sm"
                           >
-                            <div className="absolute top-3 right-3">
-                              <Award className="h-5 w-5 text-emerald-300 opacity-50" />
+                            <div className="absolute top-2 right-2">
+                              <Trophy className="h-4 w-4 text-emerald-300 opacity-50" />
                             </div>
-                            <div className="text-[13px] text-white/[0.6] font-medium">Total Bets</div>
-                            <div className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
+                            <div className="text-xs text-white/[0.6] font-medium">Total Bets</div>
+                            <div className="text-xl font-bold bg-gradient-to-r from-emerald-300 to-emerald-400 bg-clip-text text-transparent">
                               {userData.number_of_bets}
                             </div>
                           </motion.div>
                         </div>
 
-                        {/* User Info */}
+                        {/* User Info - NO background borders, just clean listing */}
                         <div className="space-y-3">
                           {[
                             { icon: User, label: 'Username', field: 'username' },
@@ -1236,18 +953,16 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.05 }}
-                              whileHover={{ scale: 1.01, x: 4 }}
-                              className="group p-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] hover:border-white/[0.2] transition-all cursor-default"
+                              whileHover={{ scale: 1.01, x: 2 }}
+                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.03] transition-all cursor-default group"
                             >
-                              <div className="flex items-center gap-3">
-                                <div className={`p-2.5 rounded-lg bg-white/[0.08] group-hover:scale-110 transition-transform`}>
-                                  <item.icon className="h-4 w-4 text-emerald-300" />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-[12px] text-white/[0.6] mb-0.5">{item.label}</div>
-                                  <div className="text-[15px] font-medium text-white">
-                                    {getDisplayValue(item.field as keyof UserData)}
-                                  </div>
+                              <div className={`p-2 rounded-lg bg-white/[0.08] group-hover:scale-110 transition-transform`}>
+                                <item.icon className="h-4 w-4 text-emerald-300" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-xs text-white/[0.6] mb-0.5">{item.label}</div>
+                                <div className="text-sm font-medium text-white">
+                                  {getDisplayValue(item.field as keyof UserData)}
                                 </div>
                               </div>
                             </motion.div>
@@ -1256,40 +971,26 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
                         {/* User Actions Footer */}
                         <div className="mt-6 pt-4 border-t border-white/[0.1]">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                                <span className="text-xs text-white/[0.6]">
-                                  {isSyncing ? 'Syncing...' : 'Connected to server'}
-                                </span>
-                              </div>
-                              <span className="text-xs text-white/[0.5] font-mono">
-                                ID: {userData.user_id?.substring(0, 8)}...
-                              </span>
-                            </div>
+                          <div className="flex gap-2">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={handleSwitchToNewUser}
+                              className="flex-1 py-2 bg-white/[0.05] border border-white/[0.15] text-white rounded-lg text-xs hover:bg-white/[0.08] backdrop-blur-sm"
+                            >
+                              Switch Account
+                            </motion.button>
                             
-                            <div className="flex gap-2 mt-2">
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={handleSwitchToNewUser}
-                                className="flex-1 py-2 bg-white/[0.05] border border-white/[0.15] text-white rounded-lg text-xs font-medium hover:bg-white/[0.08] transition-all"
-                              >
-                                Switch Account
-                              </motion.button>
-                              
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={handleLogout}
-                                disabled={isProcessing}
-                                className="flex-1 py-2 bg-red-500/[0.1] border border-red-500/[0.2] text-red-300 rounded-lg text-xs font-medium hover:bg-red-500/[0.2] transition-all flex items-center justify-center gap-1"
-                              >
-                                <LogOut className="h-3 w-3" />
-                                Logout
-                              </motion.button>
-                            </div>
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={handleLogout}
+                              disabled={isProcessing}
+                              className="flex-1 py-2 bg-red-500/[0.1] border border-red-500/[0.2] text-red-300 rounded-lg text-xs hover:bg-red-500/[0.2] backdrop-blur-sm flex items-center justify-center gap-1"
+                            >
+                              <LogOut className="h-3 w-3" />
+                              Logout
+                            </motion.button>
                           </div>
                         </div>
                       </>
@@ -1301,10 +1002,10 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="p-6"
+                    className="p-4"
                   >
                     {/* Edit Profile Content */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {[
                         { field: 'username', label: 'Username', placeholder: 'Enter username' },
                         { field: 'phone', label: 'Phone Number', placeholder: '0712345679', type: 'tel' },
@@ -1317,9 +1018,9 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.05 }}
-                          className="space-y-2"
+                          className="space-y-1"
                         >
-                          <label className="text-[13px] font-semibold text-white block">
+                          <label className="text-xs font-semibold text-white">
                             {input.label}
                           </label>
                           <input
@@ -1329,7 +1030,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                               ...prev,
                               [input.field]: e.target.value
                             }))}
-                            className="w-full p-3.5 text-[14px] border border-white/[0.15] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] backdrop-blur-sm text-white placeholder:text-white/[0.4] transition-all hover:border-white/[0.25]"
+                            className="w-full p-3 text-sm border border-white/[0.15] rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/[0.05] backdrop-blur-sm text-white placeholder:text-white/[0.4]"
                             placeholder={input.placeholder}
                           />
                         </motion.div>
@@ -1340,18 +1041,18 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.3 }}
-                        className="mt-4 p-4 bg-white/[0.05] rounded-xl border border-white/[0.1] backdrop-blur-sm"
+                        className="mt-3 p-3 bg-white/[0.05] rounded-lg border border-white/[0.1] backdrop-blur-sm"
                       >
                         <div className="flex gap-2">
                           <Shield className="h-4 w-4 text-emerald-300 flex-shrink-0 mt-0.5" />
-                          <p className="text-[12px] text-white/[0.7] leading-relaxed">
-                            <span className="font-semibold text-white">Note:</span> Balance and betting statistics are managed automatically.
+                          <p className="text-xs text-white/[0.7] leading-relaxed">
+                            Balance and betting statistics are managed automatically.
                           </p>
                         </div>
                       </motion.div>
 
                       {/* Save Button */}
-                      <div className="sticky bottom-0 pt-4 pb-2 bg-gradient-to-t from-black/[0.5] via-transparent to-transparent">
+                      <div className="pt-2">
                         <div className="flex gap-2">
                           {isNewUser && (
                             <motion.button
@@ -1360,7 +1061,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                               onClick={() => {
                                 setCurrentPage('view');
                               }}
-                              className="flex-1 py-3.5 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl hover:bg-white/[0.08] hover:border-white/[0.25] transition-all text-sm font-medium backdrop-blur-sm"
+                              className="flex-1 py-3 bg-white/[0.05] border border-white/[0.15] text-white rounded-lg hover:bg-white/[0.08] hover:border-white/[0.25] backdrop-blur-sm text-sm"
                             >
                               Cancel
                             </motion.button>
@@ -1370,7 +1071,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                             whileTap={{ scale: 0.98 }}
                             onClick={handleSave}
                             disabled={isProcessing}
-                            className={`${isNewUser ? 'flex-1' : 'w-full'} py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-[15px] font-semibold rounded-xl hover:shadow-xl hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 backdrop-blur-sm`}
+                            className={`${isNewUser ? 'flex-1' : 'w-full'} py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:shadow-xl hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 backdrop-blur-sm`}
                           >
                             {isProcessing ? (
                               <>
@@ -1394,37 +1095,37 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="p-6"
+                    className="p-4"
                   >
                     {/* Deposit Content */}
-                    <div className="text-center mb-6">
-                      <div className="relative inline-block mb-3">
-                        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 blur-xl rounded-full opacity-30" />
-                        <div className="relative p-4 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 shadow-xl shadow-emerald-500/30">
-                          <ArrowUpRight className="h-8 w-8 text-white" />
+                    <div className="text-center mb-4">
+                      <div className="relative inline-block mb-2">
+                        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-emerald-600 blur-xl rounded-full opacity-20" />
+                        <div className="relative p-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-xl shadow-emerald-500/20">
+                          <ArrowUpRight className="h-6 w-6 text-white" />
                         </div>
                       </div>
-                      <h3 className="text-[18px] font-bold text-white mb-2">Deposit Funds</h3>
-                      <p className="text-white/[0.6] text-[13px]">Add money to your account</p>
+                      <h3 className="text-sm font-bold text-white mb-1">Deposit Funds</h3>
+                      <p className="text-white/[0.6] text-xs">Add money to your account</p>
                     </div>
 
                     {/* Current Balance */}
-                    <div className="mb-6 p-4 bg-white/[0.05] border border-white/[0.1] rounded-xl backdrop-blur-sm">
-                      <div className="text-[12px] text-white/[0.6] mb-1">Current Balance</div>
-                      <div className="text-[24px] font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
+                    <div className="mb-4 p-3 bg-white/[0.05] border border-white/[0.1] rounded-xl backdrop-blur-sm">
+                      <div className="text-xs text-white/[0.6] mb-1">Current Balance</div>
+                      <div className="text-lg font-bold bg-gradient-to-r from-emerald-300 to-emerald-400 bg-clip-text text-transparent">
                         Ksh {userData.balance.toLocaleString()}
                       </div>
                     </div>
 
                     {/* Deposit Form */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {/* Phone Input */}
                       <div>
-                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                        <label className="text-xs font-semibold text-white mb-1 block">
                           Phone Number
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-300 font-bold text-sm">+254</div>
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-300 text-xs">+254</div>
                           <input
                             type="tel"
                             value={depositPhone}
@@ -1434,28 +1135,28 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                                 setDepositPhone(value);
                               }
                             }}
-                            className="w-full pl-12 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.15] rounded-xl text-white text-sm placeholder:text-white/[0.4] focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all backdrop-blur-sm"
+                            className="w-full pl-10 pr-3 py-2.5 bg-white/[0.05] border border-white/[0.15] rounded-lg text-white text-xs placeholder:text-white/[0.4] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500/40 backdrop-blur-sm"
                             placeholder="0712345679 or 712345678"
                             maxLength={10}
                           />
                         </div>
-                        <p className="text-[11px] text-white/[0.5] mt-1 ml-1">
-                          Enter M-Pesa number (07XXXXXXXX or 7XXXXXXXX)
+                        <p className="text-[10px] text-white/[0.5] mt-0.5 ml-1">
+                          Enter M-Pesa number
                         </p>
                       </div>
 
                       {/* Amount Input */}
                       <div>
-                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                        <label className="text-xs font-semibold text-white mb-1 block">
                           Amount (Ksh)
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-300 font-bold text-sm">Ksh</div>
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-300 text-xs">Ksh</div>
                           <input
                             type="number"
                             value={depositAmount}
                             onChange={(e) => setDepositAmount(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.15] rounded-xl text-white text-sm font-bold placeholder:text-white/[0.4] focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all backdrop-blur-sm"
+                            className="w-full pl-10 pr-3 py-2.5 bg-white/[0.05] border border-white/[0.15] rounded-lg text-white text-xs font-bold placeholder:text-white/[0.4] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500/40 backdrop-blur-sm"
                             placeholder="0"
                             min="1"
                           />
@@ -1464,19 +1165,19 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
                       {/* Quick Amounts */}
                       <div>
-                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                        <label className="text-xs font-semibold text-white mb-1 block">
                           Quick Select
                         </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[100, 500, 1000, 2000, 5000, 10000].map((amt) => (
+                        <div className="grid grid-cols-3 gap-1">
+                          {[100, 500, 1000].map((amt) => (
                             <motion.button
                               key={amt}
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => setDepositAmount(amt.toString())}
-                              className="py-2.5 bg-white/[0.05] border border-white/[0.1] text-white rounded-lg hover:bg-white/[0.08] hover:border-white/[0.2] transition-all text-xs font-medium backdrop-blur-sm"
+                              className="py-1.5 bg-white/[0.05] border border-white/[0.1] text-white rounded text-xs hover:bg-white/[0.08] hover:border-white/[0.2] backdrop-blur-sm"
                             >
-                              Ksh {amt.toLocaleString()}
+                              Ksh {amt}
                             </motion.button>
                           ))}
                         </div>
@@ -1487,19 +1188,19 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                         <div className="flex items-start gap-2">
                           <Shield className="h-4 w-4 text-emerald-300 mt-0.5 flex-shrink-0" />
                           <p className="text-[11px] text-white/[0.7]">
-                            You'll receive an M-Pesa prompt on your phone. Please enter your PIN to complete the payment.
+                            You'll receive an M-Pesa prompt on your phone.
                           </p>
                         </div>
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="sticky bottom-0 pt-4 pb-2 bg-gradient-to-t from-black/[0.5] via-transparent to-transparent">
+                      <div className="pt-2">
                         <div className="flex gap-2">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setCurrentPage('view')}
-                            className="flex-1 py-3 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl hover:bg-white/[0.08] hover:border-white/[0.25] transition-all text-sm font-medium backdrop-blur-sm"
+                            className="flex-1 py-2.5 bg-white/[0.05] border border-white/[0.15] text-white rounded-lg hover:bg-white/[0.08] hover:border-white/[0.25] backdrop-blur-sm text-xs"
                           >
                             Cancel
                           </motion.button>
@@ -1508,17 +1209,17 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                             whileTap={{ scale: 0.98 }}
                             onClick={handleDeposit}
                             disabled={isProcessing || !depositAmount || !depositPhone}
-                            className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+                            className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:shadow-lg hover:shadow-emerald-500/20 backdrop-blur-sm text-xs flex items-center justify-center gap-1 disabled:opacity-50"
                           >
                             {isProcessing ? (
                               <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-3 w-3 animate-spin" />
                                 Processing...
                               </>
                             ) : (
                               <>
-                                <CreditCard className="h-4 w-4" />
-                                Deposit Now
+                                <CreditCard className="h-3 w-3" />
+                                Deposit
                               </>
                             )}
                           </motion.button>
@@ -1533,32 +1234,32 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="p-6"
+                    className="p-4"
                   >
                     {/* Withdraw Header */}
-                    <div className="text-center mb-6">
-                      <div className="relative inline-block mb-3">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 blur-xl rounded-full opacity-30" />
-                        <div className="relative p-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 shadow-xl shadow-blue-500/30">
-                          <ArrowDownLeft className="h-8 w-8 text-white" />
+                    <div className="text-center mb-4">
+                      <div className="relative inline-block mb-2">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 blur-xl rounded-full opacity-20" />
+                        <div className="relative p-3 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 shadow-xl shadow-blue-500/20">
+                          <ArrowDownLeft className="h-6 w-6 text-white" />
                         </div>
                       </div>
-                      <h3 className="text-[18px] font-bold text-white mb-2">Withdraw Cash</h3>
-                      <p className="text-white/[0.6] text-[13px]">Withdraw money to your M-Pesa</p>
+                      <h3 className="text-sm font-bold text-white mb-1">Withdraw Cash</h3>
+                      <p className="text-white/[0.6] text-xs">Withdraw to M-Pesa</p>
                     </div>
 
                     {/* Current Balance */}
-                    <div className="mb-6 p-4 bg-white/[0.05] border border-white/[0.1] rounded-xl backdrop-blur-sm">
+                    <div className="mb-4 p-3 bg-white/[0.05] border border-white/[0.1] rounded-xl backdrop-blur-sm">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-[12px] text-white/[0.6] mb-1">Available Balance</div>
-                          <div className="text-[24px] font-bold bg-gradient-to-r from-emerald-300 to-green-300 bg-clip-text text-transparent">
+                          <div className="text-xs text-white/[0.6] mb-1">Available Balance</div>
+                          <div className="text-lg font-bold bg-gradient-to-r from-emerald-300 to-emerald-400 bg-clip-text text-transparent">
                             Ksh {userData.balance.toLocaleString()}
                           </div>
                         </div>
                         {!canWithdraw && (
-                          <div className="flex items-center gap-1 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                            <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
+                          <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded">
+                            <AlertCircle className="h-3 w-3 text-amber-400" />
                             <span className="text-xs text-amber-300">Min: Ksh 50</span>
                           </div>
                         )}
@@ -1566,14 +1267,14 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                     </div>
 
                     {/* Withdrawal Form */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {/* Phone Input */}
                       <div>
-                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                        <label className="text-xs font-semibold text-white mb-1 block">
                           M-Pesa Number
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold text-sm">+254</div>
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 text-xs">+254</div>
                           <input
                             type="tel"
                             value={withdrawPhone}
@@ -1583,54 +1284,49 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                                 setWithdrawPhone(value);
                               }
                             }}
-                            className="w-full pl-12 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.15] rounded-xl text-white text-sm placeholder:text-white/[0.4] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all backdrop-blur-sm"
+                            className="w-full pl-10 pr-3 py-2.5 bg-white/[0.05] border border-white/[0.15] rounded-lg text-white text-xs placeholder:text-white/[0.4] focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-blue-500/40 backdrop-blur-sm"
                             placeholder="0712345679 or 712345678"
                             maxLength={10}
                           />
                         </div>
-                        <p className="text-[11px] text-white/[0.5] mt-1 ml-1">
-                          Money will be sent to this number
-                        </p>
                       </div>
 
                       {/* Amount Input */}
                       <div>
-                        <label className="text-[13px] font-semibold text-white mb-2 block">
-                          Amount to Withdraw (Ksh)
+                        <label className="text-xs font-semibold text-white mb-1 block">
+                          Amount (Ksh)
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold text-sm">Ksh</div>
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 text-xs">Ksh</div>
                           <input
                             type="number"
                             value={withdrawAmount}
                             onChange={(e) => setWithdrawAmount(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3.5 bg-white/[0.05] border border-white/[0.15] rounded-xl text-white text-sm font-bold placeholder:text-white/[0.4] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all backdrop-blur-sm"
+                            className="w-full pl-10 pr-3 py-2.5 bg-white/[0.05] border border-white/[0.15] rounded-lg text-white text-xs font-bold placeholder:text-white/[0.4] focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-blue-500/40 backdrop-blur-sm"
                             placeholder="0"
                             min="50"
                             max={userData.balance}
                           />
                         </div>
-                        <div className="flex justify-between mt-1">
-                          <p className="text-[11px] text-white/[0.5] ml-1">
-                            Minimum: Ksh 50
+                        <div className="flex justify-between mt-0.5">
+                          <p className="text-[10px] text-white/[0.5]">
+                            Min: Ksh 50
                           </p>
-                          <p className="text-[11px] text-white/[0.5]">
-                            Maximum: Ksh {userData.balance.toLocaleString()}
+                          <p className="text-[10px] text-white/[0.5]">
+                            Max: Ksh {userData.balance.toLocaleString()}
                           </p>
                         </div>
                       </div>
 
                       {/* Quick Amounts */}
                       <div>
-                        <label className="text-[13px] font-semibold text-white mb-2 block">
+                        <label className="text-xs font-semibold text-white mb-1 block">
                           Quick Select
                         </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[50, 100, 500, 1000, 2000, 5000].map((amt) => (
+                        <div className="grid grid-cols-3 gap-1">
+                          {[50, 100, 500].map((amt) => (
                             <motion.button
                               key={amt}
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
                               onClick={() => {
                                 if (amt <= userData.balance) {
                                   setWithdrawAmount(amt.toString());
@@ -1639,13 +1335,13 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                                 }
                               }}
                               disabled={amt > userData.balance}
-                              className={`py-2.5 border rounded-lg transition-all text-xs font-medium backdrop-blur-sm ${
+                              className={`py-1.5 border rounded text-xs backdrop-blur-sm ${
                                 amt > userData.balance
                                   ? 'bg-white/[0.03] border-white/[0.1] text-white/[0.3] cursor-not-allowed'
-                                  : 'bg-white/[0.05] border-white/[0.1] text-white hover:bg-blue-500/[0.1] hover:border-blue-500/[0.3]'
+                                  : 'bg-white/[0.05] border-white/[0.1] text-white hover:bg-white/[0.08] hover:border-white/[0.2]'
                               }`}
                             >
-                              Ksh {amt.toLocaleString()}
+                              Ksh {amt}
                             </motion.button>
                           ))}
                         </div>
@@ -1654,26 +1350,21 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                       {/* Fee Info */}
                       <div className="p-3 bg-white/[0.05] rounded-lg border border-white/[0.1] backdrop-blur-sm">
                         <div className="flex items-start gap-2">
-                          <CheckCircle className="h-4 w-4 text-blue-300 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-[11px] text-white/[0.7] mb-1">
-                              <span className="font-semibold text-white">No fees!</span> Withdrawals are free.
-                            </p>
-                            <p className="text-[11px] text-white/[0.7]">
-                              Money arrives instantly to your M-Pesa account.
-                            </p>
-                          </div>
+                          <Coins className="h-4 w-4 text-blue-300 mt-0.5 flex-shrink-0" />
+                          <p className="text-[11px] text-white/[0.7]">
+                            <span className="font-semibold text-white">No fees!</span> Withdrawals are free.
+                          </p>
                         </div>
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="sticky bottom-0 pt-4 pb-2 bg-gradient-to-t from-black/[0.5] via-transparent to-transparent">
+                      <div className="pt-2">
                         <div className="flex gap-2">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setCurrentPage('view')}
-                            className="flex-1 py-3 bg-white/[0.05] border border-white/[0.15] text-white rounded-xl hover:bg-white/[0.08] hover:border-white/[0.25] transition-all text-sm font-medium backdrop-blur-sm"
+                            className="flex-1 py-2.5 bg-white/[0.05] border border-white/[0.15] text-white rounded-lg hover:bg-white/[0.08] hover:border-white/[0.25] backdrop-blur-sm text-xs"
                           >
                             Cancel
                           </motion.button>
@@ -1682,17 +1373,17 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                             whileTap={{ scale: 0.98 }}
                             onClick={handleWithdraw}
                             disabled={isProcessing || !withdrawAmount || Number(withdrawAmount) < 50 || Number(withdrawAmount) > userData.balance}
-                            className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition-all text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+                            className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/20 backdrop-blur-sm text-xs flex items-center justify-center gap-1 disabled:opacity-50"
                           >
                             {isProcessing ? (
                               <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-3 w-3 animate-spin" />
                                 Processing...
                               </>
                             ) : (
                               <>
-                                <ArrowDownLeft className="h-4 w-4" />
-                                Withdraw Now
+                                <ArrowDownLeft className="h-3 w-3" />
+                                Withdraw
                               </>
                             )}
                           </motion.button>
