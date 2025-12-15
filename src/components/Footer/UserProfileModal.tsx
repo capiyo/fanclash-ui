@@ -402,223 +402,145 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       setIsProcessing(false);
     }
   };
+const handleDeposit = async () => {
+  console.log('🚀 DEPOSIT STARTED');
+  
+  // Validation (same as before)
+  if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
+    showError('Enter valid amount');
+    return;
+  }
 
-  // Handle deposit with STK push verification
-  const handleDeposit = async () => {
-    if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
-      showError('Enter valid amount');
-      return;
-    }
+  const amount = Number(depositAmount);
+  
+  try {
+    setIsProcessing(true);
+    showLoading('Initiating payment...', 'deposit-processing');
 
-    if (!depositPhone || (depositPhone.replace(/\D/g, '').length !== 10 && depositPhone.replace(/\D/g, '').length !== 9)) {
-      showError('Enter valid phone (07XXXXXXXX or 7XXXXXXXX)');
-      return;
-    }
-
-    const amount = Number(depositAmount);
-    const phoneNumber = depositPhone;
-
-    try {
-      setIsProcessing(true);
-      showLoading('Initiating M-Pesa payment...', 'deposit-processing');
-
-      let userId = userData.user_id;
-      
-      if (!userId) {
-        const backendUser = await findUserByPhone(phoneNumber);
-        if (backendUser) {
-          userId = backendUser.user_id;
-          setUserData(backendUser);
-          localStorage.setItem('userProfile', JSON.stringify(backendUser));
-        } else {
-          throw new Error('User not found. Please save your profile first.');
-        }
-      }
-
-      const cleanPhone = phoneNumber.replace(/\D/g, '');
-      let formattedPhone = '';
-      
-      if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
-        formattedPhone = '254' + cleanPhone.substring(1);
-      } else if (cleanPhone.length === 9) {
-        formattedPhone = '254' + cleanPhone;
-      } else if (cleanPhone.length === 12 && cleanPhone.startsWith('254')) {
-        formattedPhone = cleanPhone;
+    // Get user ID
+    let userId = userData.user_id;
+    if (!userId) {
+      const backendUser = await findUserByPhone(depositPhone);
+      if (backendUser) {
+        userId = backendUser.user_id;
+        setUserData(backendUser);
+        localStorage.setItem('userProfile', JSON.stringify(backendUser));
       } else {
-        throw new Error('Invalid phone number format');
+        throw new Error('User not found. Please save your profile first.');
       }
+    }
 
-      // Step 1: Initiate STK push
-      const stkResponse = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone_number: formattedPhone,
-          amount: amount.toString(),
-          account_reference: userId,
-          transaction_desc: "FanClash Deposit"
-        }),
-      });
+    // Format phone
+    const cleanPhone = depositPhone.replace(/\D/g, '');
+    let formattedPhone = cleanPhone.startsWith('0') ? '254' + cleanPhone.substring(1) :
+                        cleanPhone.length === 9 ? '254' + cleanPhone : cleanPhone;
 
-      const stkResult = await stkResponse.json();
+    // Step 1: Initiate STK Push
+    console.log('📤 Initiating STK Push');
+    const stkResponse = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone_number: formattedPhone,
+        amount: amount.toString(),
+        account_reference: userId,
+        transaction_desc: "FanClash Deposit"
+      }),
+    });
 
-      if (!stkResponse.ok || !stkResult.success) {
-        throw new Error(stkResult.error || stkResult.message || 'M-Pesa payment initiation failed');
-      }
+    if (!stkResponse.ok) {
+      const error = await stkResponse.json();
+      throw new Error(error.error || 'Failed to initiate payment');
+    }
 
-      // Get the CheckoutRequestID from the response
-      const checkoutRequestID = stkResult.CheckoutRequestID || stkResult.checkoutRequestID;
+    const stkResult = await stkResponse.json();
+    const checkoutRequestID = stkResult.checkout_request_id;
+    
+    if (!checkoutRequestID) {
+      throw new Error('Payment initiation failed');
+    }
+
+    console.log('✅ STK Push sent. Checkout ID:', checkoutRequestID);
+    showLoading('Complete payment on your phone...', 'deposit-processing');
+
+    // Step 2: Poll for confirmation
+    let paymentConfirmed = false;
+    let attempts = 0;
+    const maxAttempts = 30; // 90 seconds
+    
+    while (!paymentConfirmed && attempts < maxAttempts) {
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      if (!checkoutRequestID) {
-        throw new Error('Failed to get payment reference. Please try again.');
-      }
-
-      toast.success('Payment request sent! Check your phone', {
-        id: 'deposit-processing',
-        duration: 3000,
-      });
-
-      // Step 2: Wait a bit for user to complete the payment
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Step 3: Poll for payment confirmation
-      showLoading('Confirming payment...', 'confirm-payment');
-      
-      let paymentConfirmed = false;
-      let attempts = 0;
-      const maxAttempts = 10; // Try for 20 seconds (10 attempts * 2 seconds)
-
-      while (attempts < maxAttempts && !paymentConfirmed) {
-        try {
-          const confirmationResponse = await fetch(
-            `${API_BASE_URL}/api/mpesa/stk-query`,
-            {
+      try {
+        const statusResponse = await fetch(`${API_BASE_URL}/api/mpesa/check-payment-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checkout_request_id: checkoutRequestID }),
+        });
+        
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          console.log(`📊 Poll ${attempts}:`, statusData);
+          
+          if (statusData.status === 'completed') {
+            console.log('✅ Payment confirmed!');
+            paymentConfirmed = true;
+            
+            // Update balance
+            const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                checkout_request_id: checkoutRequestID
+                user_id: userId,
+                balance: userData.balance + amount
               }),
-            }
-          );
-
-          const confirmationResult = await confirmationResponse.json();
-          
-          // Handle different response formats
-          const resultCode = confirmationResult.ResultCode || 
-                           confirmationResult.resultCode || 
-                           confirmationResult.response_code;
-          
-          if (resultCode === "0" || resultCode === 0 || resultCode === "0.00") {
-            // Payment successful!
-            paymentConfirmed = true;
-            toast.success('Payment confirmed!', {
-              id: 'confirm-payment',
-              duration: 2000,
             });
-          } else if (resultCode === "1032" || resultCode === "17" || resultCode === "1") {
-            // Payment cancelled by user or still processing
-            // "1" means still processing, "1032" or "17" means cancelled
-            if (resultCode === "1032" || resultCode === "17") {
-              throw new Error('Payment cancelled by user');
+            
+            if (updateResponse.ok) {
+              const updatedUser = await updateResponse.json();
+              const newUserData = { ...userData, balance: updatedUser.balance };
+              setUserData(newUserData);
+              localStorage.setItem('userProfile', JSON.stringify(newUserData));
+              
+              showSuccess(`Deposit successful! +Ksh ${amount.toLocaleString()} added!`);
+              setDepositAmount('');
+              setCurrentPage('view');
+              return;
             }
-            // If resultCode is "1", continue polling
-          } else {
-            // Other error
-            const errorMsg = confirmationResult.ResultDesc || 
-                           confirmationResult.resultDesc || 
-                           confirmationResult.response_description ||
-                           'Payment failed or was declined';
-            throw new Error(errorMsg);
+          } else if (statusData.status === 'failed') {
+            throw new Error(statusData.result_desc || 'Payment failed');
           }
-        } catch (error) {
-          if (error.message.includes('cancelled') || error.message.includes('failed') || 
-              error.message.includes('declined')) {
-            throw error;
-          }
-          // If it's a network error, continue polling
-          console.log(`Polling attempt ${attempts + 1} failed:`, error.message);
         }
-
-        if (!paymentConfirmed) {
-          // Wait 2 seconds before next poll
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          attempts++;
-        }
+      } catch (pollError) {
+        console.log(`⚠️ Poll ${attempts} error:`, pollError);
       }
-
-      if (!paymentConfirmed) {
-        throw new Error('Payment timeout. Please check your M-Pesa and try again.');
-      }
-
-      // Step 4: Only update balance AFTER successful confirmation
-      if (userData.phone !== phoneNumber) {
-        const updatedLocalData = { 
-          ...userData, 
-          phone: phoneNumber,
-        };
-        localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
-        setUserData(updatedLocalData);
-      }
-
-      const newBalance = userData.balance + amount;
-
-      showLoading('Updating balance...', 'update-balance');
-      
-      const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          balance: newBalance
-        }),
-      });
-      
-      if (updateResponse.ok) {
-        const updatedUser = await updateResponse.json();
-        
-        const updatedLocalData = { 
-          ...userData, 
-          balance: updatedUser.balance || newBalance,
-        };
-        localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
-        setUserData(updatedLocalData);
-        
-        setRecentTransaction(amount);
-        setTimeout(() => setRecentTransaction(null), 3000);
-        showSuccess(`Deposit successful! +Ksh ${amount.toLocaleString()} added!`);
-        setDepositAmount('');
-        setCurrentPage('view');
-      } else {
-        // If balance update fails but payment went through, this is a critical error
-        const errorText = await updateResponse.text();
-        console.error('Balance update failed:', errorText);
-        
-        // Log this error (in production, send to error tracking service)
-        console.error('CRITICAL: Payment succeeded but balance update failed', {
-          userId,
-          amount,
-          newBalance,
-          error: errorText
-        });
-        
-        toast.error('Payment successful but balance update failed. Please contact support.', {
-          duration: 5000,
-        });
-        
-        // Sync with backend to get correct balance
-        await syncFromBackend(false);
-      }
-
-    } catch (error) {
-      console.error('Deposit error:', error);
-      toast.dismiss('deposit-processing');
-      toast.dismiss('confirm-payment');
-      toast.dismiss('update-balance');
-      showError(error instanceof Error ? error.message : 'Payment failed. Please try again.');
-    } finally {
-      setIsProcessing(false);
     }
-  };
+    
+    if (!paymentConfirmed) {
+      throw new Error('Payment timeout. Please check if payment was completed.');
+    }
+    
+  } catch (error) {
+    console.error('💥 Deposit error:', error);
+    
+    // User-friendly error messages
+    const errorMessage = error instanceof Error ? error.message : 'Payment failed';
+    
+    if (errorMessage.includes('timeout')) {
+      showError('Payment not completed in time. Please check your M-Pesa.');
+    } else if (errorMessage.includes('2001')) {
+      showError('Wrong PIN entered or transaction cancelled.');
+    } else if (errorMessage.includes('Database error')) {
+      showError('Temporary server issue. Please check transaction status.');
+    } else {
+      showError(errorMessage);
+    }
+    
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // Handle withdrawal
   const handleWithdraw = async () => {
@@ -629,7 +551,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
     const amount = Number(withdrawAmount);
     
-    if (amount < 50) {
+    if (amount < 0) {
       showError('Minimum withdrawal is Ksh 50');
       return;
     }
@@ -673,17 +595,8 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
         throw new Error(errorMessage);
       }
 
-      // Check for various successful response codes
-      const responseCode = withdrawResult.response_code || withdrawResult.ResponseCode;
-      const isSuccess = responseCode === "0" || 
-                       responseCode === 0 || 
-                       responseCode === "0.00" ||
-                       (withdrawResult.Result && withdrawResult.Result.ResultCode === "0");
-
-      if (!isSuccess) {
-        let errorMsg = withdrawResult.response_description || 
-                      withdrawResult.Result?.ResultDesc || 
-                      'M-Pesa transaction failed';
+      if (withdrawResult.response_code !== "0" && withdrawResult.response_code !== "0.00") {
+        let errorMsg = withdrawResult.response_description || 'M-Pesa transaction failed';
         throw new Error(errorMsg);
       }
 
@@ -1292,7 +1205,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                         <div className="flex items-start gap-2">
                           <Shield className="h-4 w-4 text-emerald-300 mt-0.5 flex-shrink-0" />
                           <p className="text-[11px] text-white/[0.7]">
-                            You'll receive an M-Pesa prompt on your phone. Payment must be confirmed before balance is updated.
+                            You'll receive an M-Pesa prompt on your phone.
                           </p>
                         </div>
                       </div>
@@ -1476,7 +1389,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={handleWithdraw}
-                            disabled={isProcessing || !withdrawAmount || Number(withdrawAmount) < 50 || Number(withdrawAmount) > userData.balance}
+                            disabled={isProcessing || !withdrawAmount || Number(withdrawAmount) < 0 || Number(withdrawAmount) > userData.balance}
                             className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/20 backdrop-blur-sm text-xs flex items-center justify-center gap-1 disabled:opacity-50"
                           >
                             {isProcessing ? (
