@@ -1,11 +1,12 @@
-import { Heart, MessageCircle, Share, Bookmark, MoreHorizontal, Clock, RefreshCw, Trophy, Zap, TrendingUp, Flame, Search, Plus, Home, TrendingDown, Filter, Users, ChevronRight } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useState, useEffect } from "react";
+import { Heart, MessageCircle, Share, Bookmark, MoreHorizontal, Clock, Trophy, TrendingUp, Flame, UserPlus, Send, X, Copy, Twitter, Facebook, Linkedin, Link2, Check } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 
 const API_BASE_URL = 'https://fanclash-api.onrender.com';
 
@@ -20,6 +21,11 @@ interface Post {
   bet_amount?: number;
   bet_outcome?: 'win' | 'loss' | 'pending';
   odds?: string;
+  likes_count?: number;
+  comments_count?: number;
+  shares_count?: number;
+  is_liked?: boolean;
+  is_saved?: boolean;
 }
 
 interface ApiResponse {
@@ -28,123 +34,475 @@ interface ApiResponse {
   message?: string;
 }
 
+interface Comment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  user_name: string;
+  content: string;
+  created_at: number;
+}
+
 const PostsFeed = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
-  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'all' | 'wins' | 'live' | 'trending'>('all');
-  const [searchQuery, setSearchQuery] = useState("");
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
 
+  // Local storage cache
+  const [lastCacheTimestamp, setLastCacheTimestamp] = useState<number | null>(null);
+  const [lastEtag, setLastEtag] = useState<string | null>(null);
+
+  // Modal states - matching Flutter
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null);
+
+  // Card states - matching Flutter's _cardStates
+  const [cardStates, setCardStates] = useState<Map<number, {
+    isLiked: boolean;
+    isFollowing: boolean;
+    likeCount: number;
+    commentCount: number;
+    shareCount: number;
+    isSaved: boolean;
+    showComments: boolean;
+    comments: Comment[];
+    newComment: string;
+    isSubmittingComment: boolean;
+  }>>(new Map());
+
+  // Processing states - matching Flutter's _processingLikes
+  const [processingLikes, setProcessingLikes] = useState<Map<number, boolean>>(new Map());
+  const likeDebounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // User data from localStorage - matching Flutter's SharedPreferences
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    username: string;
+    token?: string;
+  } | null>(null);
+
+  const { toast } = useToast();
+
+  // Cache constants - matching Flutter
+  const CACHE_KEY = 'posts_cache';
+  const TIMESTAMP_KEY = 'posts_timestamp';
+  const ETAG_KEY = 'posts_etag';
+  const CACHE_VALIDITY_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+  const POLLING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+  // Avatar URLs - exactly matching Flutter's list
+  const AVATAR_URLS = [
+    'https://i.pravatar.cc/150?img=1',
+    'https://i.pravatar.cc/150?img=2',
+    'https://i.pravatar.cc/150?img=3',
+    'https://i.pravatar.cc/150?img=4',
+    'https://i.pravatar.cc/150?img=5',
+    'https://i.pravatar.cc/150?img=6',
+    'https://i.pravatar.cc/150?img=7',
+    'https://i.pravatar.cc/150?img=8',
+    'https://i.pravatar.cc/150?img=9',
+    'https://i.pravatar.cc/150?img=10',
+    'https://i.pravatar.cc/150?img=11',
+    'https://i.pravatar.cc/150?img=12',
+    'https://i.pravatar.cc/150?img=13',
+    'https://i.pravatar.cc/150?img=14',
+    'https://i.pravatar.cc/150?img=15',
+    'https://i.pravatar.cc/150?img=16',
+    'https://i.pravatar.cc/150?img=17',
+    'https://i.pravatar.cc/150?img=18',
+    'https://i.pravatar.cc/150?img=19',
+    'https://i.pravatar.cc/150?img=20',
+    'https://i.pravatar.cc/150?img=21',
+    'https://i.pravatar.cc/150?img=22',
+    'https://i.pravatar.cc/150?img=23',
+    'https://i.pravatar.cc/150?img=24',
+    'https://i.pravatar.cc/150?img=25',
+    'https://i.pravatar.cc/150?img=26',
+    'https://i.pravatar.cc/150?img=27',
+    'https://i.pravatar.cc/150?img=28',
+    'https://i.pravatar.cc/150?img=29',
+    'https://i.pravatar.cc/150?img=30',
+    'https://i.pravatar.cc/150?img=31',
+    'https://i.pravatar.cc/150?img=32',
+    'https://i.pravatar.cc/150?img=33',
+    'https://i.pravatar.cc/150?img=34',
+    'https://i.pravatar.cc/150?img=35',
+    'https://i.pravatar.cc/150?img=36',
+    'https://i.pravatar.cc/150?img=37',
+    'https://i.pravatar.cc/150?img=38',
+    'https://i.pravatar.cc/150?img=39',
+    'https://i.pravatar.cc/150?img=40',
+    'https://i.pravatar.cc/150?img=41',
+    'https://i.pravatar.cc/150?img=42',
+    'https://i.pravatar.cc/150?img=43',
+    'https://i.pravatar.cc/150?img=44',
+    'https://i.pravatar.cc/150?img=45',
+    'https://i.pravatar.cc/150?img=46',
+    'https://i.pravatar.cc/150?img=47',
+    'https://i.pravatar.cc/150?img=48',
+    'https://i.pravatar.cc/150?img=49',
+    'https://i.pravatar.cc/150?img=50',
+    'https://i.pravatar.cc/150?img=51',
+    'https://i.pravatar.cc/150?img=52',
+    'https://i.pravatar.cc/150?img=53',
+    'https://i.pravatar.cc/150?img=54',
+    'https://i.pravatar.cc/150?img=55',
+    'https://i.pravatar.cc/150?img=56',
+    'https://i.pravatar.cc/150?img=57',
+    'https://i.pravatar.cc/150?img=58',
+    'https://i.pravatar.cc/150?img=59',
+    'https://i.pravatar.cc/150?img=60',
+    'https://i.pravatar.cc/150?img=61',
+    'https://i.pravatar.cc/150?img=62',
+    'https://i.pravatar.cc/150?img=63',
+    'https://i.pravatar.cc/150?img=64',
+    'https://i.pravatar.cc/150?img=65',
+    'https://i.pravatar.cc/150?img=66',
+    'https://i.pravatar.cc/150?img=67',
+    'https://i.pravatar.cc/150?img=68',
+    'https://i.pravatar.cc/150?img=69',
+    'https://i.pravatar.cc/150?img=70',
+  ];
+
+  // Cache for user avatars - matching Flutter's _userAvatarMap
+  const [userAvatarMap, setUserAvatarMap] = useState<Map<string, string>>(new Map());
+
+  // Load user from localStorage on mount
   useEffect(() => {
-    fetchPosts();
+    const loadUser = () => {
+      try {
+        const userString = localStorage.getItem("user");
+        const token = localStorage.getItem("usertoken");
+
+        if (userString) {
+          const user = JSON.parse(userString);
+          setCurrentUser({
+            id: user.id || user.user_id || '',
+            username: user.username || '',
+            token: token || undefined
+          });
+        }
+      } catch (error) {
+        console.error("Error loading user:", error);
+      }
+    };
+
+    loadUser();
+
+    // Listen for storage changes
+    const handleStorageChange = () => {
+      loadUser();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const fetchPosts = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      setError("");
-      
-      const response = await fetch(`${API_BASE_URL}/api/posts`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        credentials: 'omit'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data: ApiResponse = await response.json();
-      
-      if (data.success && Array.isArray(data.posts)) {
-        const cleanedPosts = data.posts.map(post => ({
-          ...post,
-          image_url: cleanImageUrl(post.image_url),
-          bet_amount: post.bet_amount || Math.floor(Math.random() * 500) + 10,
-          bet_outcome: post.bet_outcome || (Math.random() > 0.5 ? 'win' : Math.random() > 0.3 ? 'loss' : 'pending'),
-          odds: post.odds || `${(Math.random() * 5 + 1.1).toFixed(2)}`
-        }));
-        
-        setPosts(cleanedPosts);
-      } else {
-        throw new Error("Invalid response format");
-      }
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred while fetching posts";
-      setError(errorMessage);
-      console.error("Error fetching posts:", err);
-    } finally {
-      setLoading(false);
+  // Get avatar for user - matching Flutter's _getAvatarForUser
+  const getAvatarForUser = useCallback((userId: string): string => {
+    if (userAvatarMap.has(userId)) {
+      return userAvatarMap.get(userId)!;
     }
+
+    // Simple hash function to get consistent index
+    const hash = userId.split('').reduce((acc, char) => {
+      return acc + char.charCodeAt(0);
+    }, 0);
+
+    const index = Math.abs(hash) % AVATAR_URLS.length;
+    const avatarUrl = AVATAR_URLS[index];
+
+    setUserAvatarMap(prev => new Map(prev).set(userId, avatarUrl));
+    return avatarUrl;
+  }, [userAvatarMap]);
+
+  // Get initials - matching Flutter's _getInitials
+  const getInitials = (name: string): string => {
+    if (!name || name.trim() === '') return 'U';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    } else if (parts.length > 0 && parts[0].length > 0) {
+      return parts[0][0].toUpperCase();
+    }
+    return 'U';
   };
 
+  // Load cached data - matching Flutter's _loadCachedData
+  useEffect(() => {
+    const loadCachedData = async () => {
+      try {
+        const cachedPosts = localStorage.getItem(CACHE_KEY);
+        const cachedTimestamp = localStorage.getItem(TIMESTAMP_KEY);
+        const cachedEtag = localStorage.getItem(ETAG_KEY);
+
+        if (cachedPosts && cachedTimestamp) {
+          const parsedPosts = JSON.parse(cachedPosts) as Post[];
+          const timestamp = parseInt(cachedTimestamp);
+          const now = Date.now();
+          const isCacheValid = now - timestamp < CACHE_VALIDITY_DURATION;
+
+          // Sort by created_at descending - matching Flutter
+          parsedPosts.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+          if (parsedPosts.length > 0 && posts.length === 0) {
+            setPosts(parsedPosts);
+            setLastCacheTimestamp(timestamp);
+            setLastEtag(cachedEtag || null);
+            initializeCardStates(parsedPosts);
+            setLoading(false);
+          }
+
+          if (!isCacheValid) {
+            // Cache expired, fetch fresh data
+            fetchPosts(true);
+          } else {
+            // Check for updates after a delay
+            setTimeout(checkForUpdates, 2000);
+          }
+        } else {
+          // No cache, fetch fresh data
+          fetchPosts(false);
+        }
+      } catch (error) {
+        console.error('Cache load error:', error);
+        fetchPosts(false);
+      }
+    };
+
+    loadCachedData();
+  }, []);
+
+  // Save to cache - matching Flutter's _saveToCache
+  const saveToCache = useCallback((posts: Post[], etag?: string) => {
+    try {
+      const timestamp = Date.now();
+      localStorage.setItem(CACHE_KEY, JSON.stringify(posts));
+      localStorage.setItem(TIMESTAMP_KEY, timestamp.toString());
+      if (etag) {
+        localStorage.setItem(ETAG_KEY, etag);
+        setLastEtag(etag);
+      }
+      setLastCacheTimestamp(timestamp);
+    } catch (error) {
+      console.error('Cache save error:', error);
+    }
+  }, []);
+
+  // Check for updates - matching Flutter's _checkForUpdates
+  const checkForUpdates = useCallback(async () => {
+    if (loading || refreshing || isFetching || posts.length === 0) return;
+
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      if (currentUser?.token) {
+        headers['Authorization'] = `Bearer ${currentUser.token}`;
+      }
+
+      if (lastEtag) {
+        headers['If-None-Match'] = lastEtag;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/posts`, {
+        method: 'HEAD',
+        headers,
+      });
+
+      if (response.status === 304) return; // Not modified
+
+      if (response.ok) {
+        // Debounce the refresh
+        setTimeout(() => {
+          fetchPosts(true, true);
+        }, 1000);
+      }
+    } catch (error) {
+      // Silently fail
+    }
+  }, [loading, refreshing, isFetching, posts.length, currentUser, lastEtag]);
+
+  // Build headers - matching Flutter's _buildHeaders
+  const buildHeaders = useCallback((forceRefresh = false) => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    if (currentUser?.token) {
+      headers['Authorization'] = `Bearer ${currentUser.token}`;
+    }
+
+    headers['Cache-Control'] = forceRefresh ? 'no-cache' : 'max-age=300';
+
+    return headers;
+  }, [currentUser]);
+
+  // Check if posts have changed - matching Flutter's _havePostsChanged
+  const havePostsChanged = useCallback((newPosts: Post[]): boolean => {
+    if (posts.length !== newPosts.length) return true;
+
+    // Check first 5 posts for changes
+    for (let i = 0; i < Math.min(posts.length, 5); i++) {
+      if (posts[i].id !== newPosts[i].id) return true;
+      if ((posts[i].likes_count || 0) !== (newPosts[i].likes_count || 0)) return true;
+      if ((posts[i].comments_count || 0) !== (newPosts[i].comments_count || 0)) return true;
+    }
+
+    return false;
+  }, [posts]);
+
+  // Initialize card states - matching Flutter's _initializeCardStates
+  const initializeCardStates = useCallback((postsList: Post[]) => {
+    const newCardStates = new Map();
+
+    postsList.forEach((post, index) => {
+      if (!post.id) return;
+
+      // Check if user has liked this post from localStorage
+      const likedPosts = JSON.parse(localStorage.getItem('likedPosts') || '[]');
+      const isLiked = likedPosts.includes(post.id) || post.is_liked || false;
+
+      // Check if user has saved this post
+      const savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
+      const isSaved = savedPosts.includes(post.id) || false;
+
+      newCardStates.set(index, {
+        isLiked,
+        isFollowing: false,
+        likeCount: post.likes_count || Math.floor(Math.random() * 300) + 100,
+        commentCount: post.comments_count || Math.floor(Math.random() * 50) + 10,
+        shareCount: post.shares_count || Math.floor(Math.random() * 30) + 5,
+        isSaved,
+        showComments: false,
+        comments: [],
+        newComment: '',
+        isSubmittingComment: false,
+      });
+    });
+
+    setCardStates(newCardStates);
+  }, []);
+
+  // Clean image URL
   const cleanImageUrl = (imageUrl: string): string => {
-    if (!imageUrl || 
-        typeof imageUrl !== 'string' ||
-        imageUrl.trim() === '' || 
-        imageUrl === 'null' || 
-        imageUrl === 'undefined' ||
-        imageUrl === 'NaN' ||
-        imageUrl.toLowerCase() === 'none' ||
-        imageUrl === 'false' ||
-        imageUrl === 'true') {
+    if (!imageUrl ||
+      typeof imageUrl !== 'string' ||
+      imageUrl.trim() === '' ||
+      imageUrl === 'null' ||
+      imageUrl === 'undefined' ||
+      imageUrl === 'NaN' ||
+      imageUrl.toLowerCase() === 'none' ||
+      imageUrl === 'false' ||
+      imageUrl === 'true') {
       return '';
     }
-    
+
     let cleanedUrl = imageUrl.trim();
-    
+
     if (cleanedUrl.startsWith('http://') || cleanedUrl.startsWith('https://')) {
       return cleanedUrl;
     }
-    
+
     if (cleanedUrl.startsWith('//')) {
       return `https:${cleanedUrl}`;
     }
-    
+
     if (cleanedUrl.startsWith('/')) {
       return `${API_BASE_URL}${cleanedUrl}`;
     }
-    
+
     return `${API_BASE_URL}/${cleanedUrl}`;
   };
 
-  const handleLike = (postId: string): void => {
-    setLikedPosts(prev => {
-      const newLiked = new Set(prev);
-      if (newLiked.has(postId)) {
-        newLiked.delete(postId);
+  // Fetch posts - matching Flutter's _fetchPosts
+  const fetchPosts = async (forceRefresh = false, showNotification = false) => {
+    if (isFetching) return;
+
+    setIsFetching(true);
+
+    try {
+      if (posts.length === 0) {
+        setLoading(true);
       } else {
-        newLiked.add(postId);
+        setRefreshing(true);
       }
-      return newLiked;
-    });
+
+      const headers = buildHeaders(forceRefresh);
+      const response = await fetch(`${API_BASE_URL}/api/posts`, { headers });
+
+      if (response.ok) {
+        const data: ApiResponse = await response.json();
+
+        if (data.success && Array.isArray(data.posts)) {
+          const cleanedPosts = data.posts.map(post => ({
+            ...post,
+            image_url: cleanImageUrl(post.image_url),
+            bet_amount: post.bet_amount || Math.floor(Math.random() * 1000) + 100,
+            bet_outcome: post.bet_outcome || (Math.random() > 0.5 ? 'win' : Math.random() > 0.3 ? 'loss' : 'pending'),
+            odds: post.odds || `${(Math.random() * 5 + 1.1).toFixed(2)}`,
+            likes_count: post.likes_count || Math.floor(Math.random() * 300) + 100,
+            comments_count: post.comments_count || Math.floor(Math.random() * 50) + 10,
+            shares_count: post.shares_count || Math.floor(Math.random() * 30) + 5,
+          }));
+
+          // Sort by created_at descending
+          cleanedPosts.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+          const etag = response.headers.get('etag') || undefined;
+
+          if (havePostsChanged(cleanedPosts)) {
+            saveToCache(cleanedPosts, etag);
+            setPosts(cleanedPosts);
+            initializeCardStates(cleanedPosts);
+            setError('');
+
+            if (showNotification && refreshing) {
+              toast({
+                title: "Posts Updated",
+                description: "New posts are available!",
+                duration: 2000,
+              });
+            }
+          }
+        } else {
+          if (posts.length === 0) {
+            setError(data.message || 'Failed to load posts');
+          }
+        }
+      } else if (response.status === 304) {
+        // Not modified - do nothing
+      } else {
+        if (posts.length === 0) {
+          setError(`Server error: ${response.status}`);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+      if (posts.length === 0) {
+        setError('Connection timeout. Check your internet connection.');
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setIsFetching(false);
+    }
   };
 
-  const handleSave = (postId: string): void => {
-    setSavedPosts(prev => {
-      const newSaved = new Set(prev);
-      if (newSaved.has(postId)) {
-        newSaved.delete(postId);
-      } else {
-        newSaved.add(postId);
-      }
-      return newSaved;
-    });
-  };
-
+  // Format time ago - matching Flutter's formattedDate
   const formatTimeAgo = (timestamp: number): string => {
     try {
       const date = new Date(timestamp * 1000);
       const now = new Date();
       const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-      
+
       if (diffInSeconds < 60) return 'Just now';
       if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
       if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
@@ -155,43 +513,359 @@ const PostsFeed = () => {
     }
   };
 
-  const getInitials = (name: string): string => {
-    return name
-      .split(' ')
-      .map(part => part.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
+  // Get outcome color - matching Flutter's badge colors
   const getOutcomeColor = (outcome: string) => {
-    switch(outcome) {
+    switch (outcome) {
       case 'win': return 'bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-emerald-500 border-emerald-500/40';
       case 'loss': return 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-500 border-red-500/40';
       default: return 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-500 border-yellow-500/40';
     }
   };
 
+  // Get outcome icon - matching Flutter
   const getOutcomeIcon = (outcome: string) => {
-    switch(outcome) {
-      case 'win': return <Trophy className="h-3 w-3" />;
-      case 'loss': return <TrendingUp className="h-3 w-3 rotate-180" />;
-      default: return <Clock className="h-3 w-3" />;
+    switch (outcome) {
+      case 'win': return <Trophy className="h-3.5 w-3.5" />;
+      case 'loss': return <TrendingUp className="h-3.5 w-3.5 rotate-180" />;
+      default: return <Clock className="h-3.5 w-3.5" />;
     }
   };
 
+  // Format count - matching Flutter's _formatCount
+  const formatCount = (count: number): string => {
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1)}M`;
+    } else if (count >= 1000) {
+      return `${(count / 1000).toFixed(1)}K`;
+    }
+    return count.toString();
+  };
+
+  // Toggle like - matching Flutter's _toggleLike with debouncing
+  const toggleLike = async (index: number, postId: string) => {
+    if (processingLikes.get(index) === true) return;
+
+    const cardState = cardStates.get(index);
+    if (!cardState) return;
+
+    const isCurrentlyLiked = cardState.isLiked;
+    if (isCurrentlyLiked) return; // Can't unlike - matching Flutter behavior
+
+    // Mark as processing
+    setProcessingLikes(prev => new Map(prev).set(index, true));
+
+    const originalLikeCount = cardState.likeCount;
+
+    // Optimistic update
+    setCardStates(prev => {
+      const newMap = new Map(prev);
+      const state = newMap.get(index);
+      if (state) {
+        newMap.set(index, {
+          ...state,
+          isLiked: true,
+          likeCount: originalLikeCount + 1,
+        });
+      }
+      return newMap;
+    });
+
+    // Cancel existing timer for this post
+    if (likeDebounceTimers.current.has(postId)) {
+      clearTimeout(likeDebounceTimers.current.get(postId));
+    }
+
+    // Set new debounce timer - 300ms like Flutter
+    const timer = setTimeout(async () => {
+      try {
+        const url = `${API_BASE_URL}/api/posts/${postId}/like`;
+        const headers = buildHeaders();
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ user_id: currentUser?.id }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.post) {
+            // Update with server data
+            setCardStates(prev => {
+              const newMap = new Map(prev);
+              const state = newMap.get(index);
+              if (state) {
+                newMap.set(index, {
+                  ...state,
+                  likeCount: data.post.likes_count || originalLikeCount + 1,
+                });
+              }
+              return newMap;
+            });
+
+            // Save liked post to localStorage
+            const likedPosts = JSON.parse(localStorage.getItem('likedPosts') || '[]');
+            if (!likedPosts.includes(postId)) {
+              likedPosts.push(postId);
+              localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
+            }
+
+            // Invalidate cache
+            setLastCacheTimestamp(null);
+            setLastEtag(null);
+          }
+        } else {
+          // Revert on error
+          setCardStates(prev => {
+            const newMap = new Map(prev);
+            const state = newMap.get(index);
+            if (state) {
+              newMap.set(index, {
+                ...state,
+                isLiked: false,
+                likeCount: originalLikeCount,
+              });
+            }
+            return newMap;
+          });
+        }
+      } catch (error) {
+        // Revert on error
+        setCardStates(prev => {
+          const newMap = new Map(prev);
+          const state = newMap.get(index);
+          if (state) {
+            newMap.set(index, {
+              ...state,
+              isLiked: false,
+              likeCount: originalLikeCount,
+            });
+          }
+          return newMap;
+        });
+      } finally {
+        setProcessingLikes(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(index);
+          return newMap;
+        });
+        likeDebounceTimers.current.delete(postId);
+      }
+    }, 300);
+
+    likeDebounceTimers.current.set(postId, timer);
+  };
+
+  // Handle follow - matching Flutter's _handleFollow
+  const handleFollow = (index: number) => {
+    setCardStates(prev => {
+      const newMap = new Map(prev);
+      const state = newMap.get(index);
+      if (state) {
+        newMap.set(index, {
+          ...state,
+          isFollowing: true,
+        });
+      }
+      return newMap;
+    });
+
+    toast({
+      title: "Following",
+      description: "You are now following this user",
+      duration: 2000,
+    });
+  };
+
+  // Load comments for a post
+  const loadComments = async (postId: string, index: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/comments`, {
+        headers: buildHeaders(),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && Array.isArray(data.comments)) {
+          setCardStates(prev => {
+            const newMap = new Map(prev);
+            const state = newMap.get(index);
+            if (state) {
+              newMap.set(index, {
+                ...state,
+                comments: data.comments.map((c: any) => ({
+                  id: c.id,
+                  post_id: postId,
+                  user_id: c.user_id,
+                  user_name: c.user_name,
+                  content: c.content,
+                  created_at: c.created_at,
+                })),
+              });
+            }
+            return newMap;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    }
+  };
+
+  // Submit comment
+  const submitComment = async (index: number, postId: string) => {
+    const cardState = cardStates.get(index);
+    if (!cardState || !cardState.newComment.trim() || !currentUser) return;
+
+    setCardStates(prev => {
+      const newMap = new Map(prev);
+      const state = newMap.get(index);
+      if (state) {
+        newMap.set(index, { ...state, isSubmittingComment: true });
+      }
+      return newMap;
+    });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: buildHeaders(),
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          user_name: currentUser.username,
+          content: cardState.newComment,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.comment) {
+          // Add comment to list
+          setCardStates(prev => {
+            const newMap = new Map(prev);
+            const state = newMap.get(index);
+            if (state) {
+              newMap.set(index, {
+                ...state,
+                comments: [...state.comments, {
+                  id: data.comment.id,
+                  post_id: postId,
+                  user_id: currentUser.id,
+                  user_name: currentUser.username,
+                  content: cardState.newComment,
+                  created_at: Math.floor(Date.now() / 1000),
+                }],
+                commentCount: state.commentCount + 1,
+                newComment: '',
+                isSubmittingComment: false,
+              });
+            }
+            return newMap;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+    } finally {
+      setCardStates(prev => {
+        const newMap = new Map(prev);
+        const state = newMap.get(index);
+        if (state) {
+          newMap.set(index, { ...state, isSubmittingComment: false });
+        }
+        return newMap;
+      });
+    }
+  };
+
+  // Toggle save post
+  const toggleSave = (postId: string, index: number) => {
+    setCardStates(prev => {
+      const newMap = new Map(prev);
+      const state = newMap.get(index);
+      if (state) {
+        const newIsSaved = !state.isSaved;
+        newMap.set(index, { ...state, isSaved: newIsSaved });
+
+        // Update localStorage
+        const savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
+        if (newIsSaved) {
+          if (!savedPosts.includes(postId)) {
+            savedPosts.push(postId);
+          }
+        } else {
+          const index = savedPosts.indexOf(postId);
+          if (index > -1) {
+            savedPosts.splice(index, 1);
+          }
+        }
+        localStorage.setItem('savedPosts', JSON.stringify(savedPosts));
+
+        toast({
+          title: newIsSaved ? "Post saved" : "Post unsaved",
+          description: newIsSaved ? "Added to your saved posts" : "Removed from saved posts",
+          duration: 1500,
+        });
+      }
+      return newMap;
+    });
+  };
+
+  // Modal handlers - matching Flutter
+  const openChatModal = (index: number) => {
+    setIsChatOpen(true);
+    setSelectedPostIndex(index);
+  };
+
+  const openCommentsModal = (index: number) => {
+    setIsCommentsOpen(true);
+    setSelectedPostIndex(index);
+    const post = posts[index];
+    if (post?.id) {
+      // Toggle comments section instead of modal
+      setCardStates(prev => {
+        const newMap = new Map(prev);
+        const state = newMap.get(index);
+        if (state) {
+          const showComments = !state.showComments;
+          newMap.set(index, { ...state, showComments });
+          if (showComments && state.comments.length === 0) {
+            loadComments(post.id, index);
+          }
+        }
+        return newMap;
+      });
+    }
+  };
+
+  const openShareModal = (index: number) => {
+    setIsShareOpen(true);
+    setSelectedPostIndex(index);
+  };
+
+  const closeAllModals = () => {
+    setIsChatOpen(false);
+    setIsCommentsOpen(false);
+    setIsShareOpen(false);
+    setSelectedPostIndex(null);
+  };
+
+  // Use mock data if needed
   const useMockData = (): void => {
     const mockPosts: Post[] = [
       {
         id: '1',
-        image_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&h=600&fit=crop',
+        image_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&h=800&fit=crop',
         caption: 'HUGE WIN! 🏆 Just won ₿250 on Liverpool vs Man City! The 2-1 comeback was insane! 💪 #betting #sportsbetting #win #football',
         user_name: 'Alex Betmaster',
         user_id: 'user123',
         created_at: Math.floor(Date.now() / 1000) - 2 * 60 * 60,
         bet_amount: 250,
         bet_outcome: 'win',
-        odds: '3.25'
+        odds: '3.25',
+        likes_count: 234,
+        comments_count: 45,
+        shares_count: 12,
       },
       {
         id: '2',
@@ -202,566 +876,818 @@ const PostsFeed = () => {
         created_at: Math.floor(Date.now() / 1000) - 5 * 60 * 60,
         bet_amount: 100,
         bet_outcome: 'pending',
-        odds: '2.10'
+        odds: '2.10',
+        likes_count: 89,
+        comments_count: 23,
+        shares_count: 5,
       },
       {
         id: '3',
-        image_url: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=800&h=600&fit=crop',
+        image_url: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=1200&h=800&fit=crop',
         caption: 'Tough loss on the Derby today... 🤦‍♂️ Thought Horse #3 was a lock! Back to analyzing form for tomorrow. #horseracing #betting #sports #analysis',
         user_name: 'Mike Tipster',
         user_id: 'user789',
         created_at: Math.floor(Date.now() / 1000) - 8 * 60 * 60,
         bet_amount: 75,
         bet_outcome: 'loss',
-        odds: '4.50'
+        odds: '4.50',
+        likes_count: 56,
+        comments_count: 18,
+        shares_count: 3,
       },
       {
         id: '4',
-        image_url: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=800&h=600&fit=crop',
+        image_url: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=1200&h=800&fit=crop',
         caption: 'EPIC COMEBACK WIN! 🔥 Arsenal coming back from 2-0 down to win 3-2! Bet ₿150 at 8.50 odds! #Arsenal #PremierLeague #Win',
         user_name: 'James Bettor',
         user_id: 'user101',
         created_at: Math.floor(Date.now() / 1000) - 3 * 60 * 60,
         bet_amount: 150,
         bet_outcome: 'win',
-        odds: '8.50'
+        odds: '8.50',
+        likes_count: 412,
+        comments_count: 67,
+        shares_count: 23,
       },
       {
         id: '5',
-        image_url: 'https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?w=800&h=600&fit=crop',
+        image_url: 'https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?w=1200&h=800&fit=crop',
         caption: 'Live tennis betting right now! 🎾 Taking Nadal to win in straight sets @ 1.85 odds. His clay game is unstoppable! #Tennis #LiveBet',
         user_name: 'Emma Sports',
         user_id: 'user102',
         created_at: Math.floor(Date.now() / 1000) - 1 * 60 * 60,
         bet_amount: 200,
         bet_outcome: 'pending',
-        odds: '1.85'
+        odds: '1.85',
+        likes_count: 178,
+        comments_count: 34,
+        shares_count: 9,
       },
     ];
-    
+
     const cleanedPosts = mockPosts.map(post => ({
       ...post,
       image_url: cleanImageUrl(post.image_url)
     }));
-    
+
     setPosts(cleanedPosts);
+    initializeCardStates(cleanedPosts);
     setError("");
     setLoading(false);
   };
 
-  // Filter posts based on active tab
-  const filteredPosts = posts.filter(post => {
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase();
-      if (!post.caption?.toLowerCase().includes(searchLower) &&
-          !post.user_name.toLowerCase().includes(searchLower)) {
-        return false;
-      }
-    }
-    
-    if (activeTab === 'wins') {
-      return post.bet_outcome === 'win';
-    } else if (activeTab === 'live') {
-      return post.bet_outcome === 'pending';
-    }
-    return true;
-  });
-
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="hidden lg:block min-h-screen bg-black">
-        {/* Scrollable Container */}
-        <div className="flex h-screen overflow-hidden">
-          {/* Left Sidebar - Fixed */}
-          <div className="w-30 border-r border-gray-800/50 overflow-y-auto">
-            <div className="p-6 space-y-6">
-              {/* Loading skeleton for sidebar */}
-              <div className="space-y-4">
-                <div className="h-10 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 rounded-full animate-pulse"></div>
-                <div className="h-48 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 rounded-xl animate-pulse"></div>
-                <div className="h-64 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 rounded-xl animate-pulse"></div>
+      <div className="h-full overflow-y-auto bg-black">
+        <div className="space-y-4 p-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-[#111827]/30 rounded-xl border border-[#1F2937]/50 p-5 animate-pulse">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20"></div>
+                <div className="space-y-2 flex-1">
+                  <div className="w-36 h-4 bg-emerald-500/20 rounded-full"></div>
+                  <div className="w-24 h-3 bg-emerald-500/10 rounded-full"></div>
+                </div>
+              </div>
+              <div className="w-full h-48 bg-emerald-500/10 rounded-lg mb-4"></div>
+              <div className="space-y-3">
+                <div className="w-3/4 h-4 bg-emerald-500/20 rounded-full"></div>
+                <div className="w-1/2 h-3 bg-emerald-500/10 rounded-full"></div>
               </div>
             </div>
-          </div>
-
-          {/* Main Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto p-6">
-              <div className="space-y-6">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="bg-gradient-to-br from-gray-900/30 to-black/30 rounded-xl border border-gray-800/50 p-6 animate-pulse">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20"></div>
-                      <div className="space-y-2 flex-1">
-                        <div className="w-32 h-4 bg-gradient-to-r from-emerald-500/20 to-emerald-500/10 rounded-full"></div>
-                        <div className="w-24 h-3 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 rounded-full"></div>
-                      </div>
-                    </div>
-                    <div className="w-full h-64 bg-gradient-to-br from-emerald-500/10 to-cyan-500/5 rounded-xl mb-4"></div>
-                    <div className="space-y-3">
-                      <div className="w-3/4 h-4 bg-gradient-to-r from-emerald-500/20 to-emerald-500/10 rounded-full"></div>
-                      <div className="w-1/2 h-3 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 rounded-full"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error && posts.length === 0) {
     return (
-      <div className="hidden lg:block min-h-screen bg-black">
-        <div className="flex h-screen overflow-hidden">
-          <div className="w-80 border-r border-gray-800/50"></div>
-          <div className="flex-1 overflow-y-auto flex items-center justify-center">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-center max-w-md"
-            >
-              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
-                <Trophy className="w-10 h-10 text-red-500" />
-              </div>
-              <h3 className="text-xl font-bold text-red-400 mb-2">Connection Failed</h3>
-              <p className="text-gray-400 mb-6">Unable to load betting posts</p>
-              <div className="space-y-3">
-                <Button
-                  onClick={fetchPosts}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry Connection
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={useMockData}
-                  className="w-full border-gray-800 text-gray-400 hover:text-white"
-                >
-                  Load Demo Posts
-                </Button>
-              </div>
-            </motion.div>
+      <div className="h-full overflow-y-auto flex items-center justify-center bg-black">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="text-center max-w-md mx-auto py-12 px-4"
+        >
+          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+            <Trophy className="w-8 h-8 text-red-500" />
           </div>
-        </div>
+          <h3 className="text-xl font-bold text-red-400 mb-2">Connection Failed</h3>
+          <p className="text-gray-400 text-sm mb-6">{error}</p>
+          <div className="space-y-3 max-w-sm mx-auto">
+            <Button
+              onClick={() => fetchPosts(true)}
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 text-sm"
+            >
+              Retry Connection
+            </Button>
+            <Button
+              variant="outline"
+              onClick={useMockData}
+              className="w-full border-gray-800 text-gray-400 hover:text-white py-3 text-sm"
+            >
+              Load Demo Posts
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="hidden lg:block min-h-screen bg-black">
-      {/* Scrollable Container */}
-      <div className="flex h-screen overflow-hidden">
-        {/* Left Sidebar - Fixed & Scrollable */}
-        <div className="w-80 border-r border-gray-800/50 overflow-y-auto">
-          <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 p-6 border-b border-gray-800/50">
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <Input
-                type="text"
-                placeholder="Search posts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-900/50 border-gray-800 rounded-full text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-emerald-500/30"
-              />
-            </div>
-          </div>
-
-          <div className="p-6 space-y-6">
-            {/* Sidebar Content */}
-            <div className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/5 rounded-xl border border-emerald-500/20 p-4">
-              <h3 className="font-bold text-white mb-2">🎯 Quick Stats</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Total Bets</span>
-                  <span className="text-emerald-400 font-bold">127</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Win Rate</span>
-                  <span className="text-emerald-400 font-bold">68%</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Total Profit</span>
-                  <span className="text-emerald-400 font-bold">₿1,240</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Trending Bets */}
-            <div>
-              <h3 className="font-bold text-white mb-3 flex items-center gap-2">
-                <Flame className="w-4 h-4 text-orange-500" />
-                Trending Now
-              </h3>
-              <div className="space-y-3">
-                {['Premier League', 'NBA Finals', 'UFC 300', 'Masters'].map((sport) => (
-                  <div key={sport} className="flex items-center justify-between p-3 rounded-lg bg-gray-900/30 hover:bg-gray-900/50 cursor-pointer">
-                    <span className="text-sm text-gray-300">{sport}</span>
-                    <ChevronRight className="w-4 h-4 text-gray-500" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Top Tipsters */}
-            <div>
-              <h3 className="font-bold text-white mb-3 flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-yellow-500" />
-                Top Tipsters
-              </h3>
-              <div className="space-y-3">
-                {[
-                  { name: 'BetKing', profit: '+₿420' },
-                  { name: 'SportsPro', profit: '+₿380' },
-                  { name: 'OddsMaster', profit: '+₿320' }
-                ].map((tipster) => (
-                  <div key={tipster.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-xs">
-                          {tipster.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm text-gray-300">{tipster.name}</span>
-                    </div>
-                    <span className="text-emerald-400 font-bold text-sm">{tipster.profit}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+    <div className="h-full overflow-y-auto bg-black">
+      {/* Pull to refresh indicator */}
+      {refreshing && (
+        <div className="sticky top-0 z-10 flex justify-center py-2 bg-black/80 backdrop-blur-sm">
+          <div className="flex items-center gap-2 px-4 py-1 bg-emerald-500/20 rounded-full border border-emerald-500/30">
+            <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-emerald-400">Refreshing...</span>
           </div>
         </div>
+      )}
 
-        {/* Main Content Area - This was missing! */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto p-6">
-            {/* Header with Tabs */}
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-white mb-2">Betting Feed</h1>
-              <p className="text-gray-400 mb-6">See the latest wins, losses, and live bets from the community</p>
-              
-              {/* Tabs */}
-              <div className="flex gap-2 mb-6">
-                <Button
-                  variant={activeTab === 'all' ? 'default' : 'ghost'}
-                  onClick={() => setActiveTab('all')}
-                  className={cn(
-                    activeTab === 'all' 
-                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
-                      : 'text-gray-400 hover:text-white'
-                  )}
-                >
-                  All Posts
-                </Button>
-                <Button
-                  variant={activeTab === 'wins' ? 'default' : 'ghost'}
-                  onClick={() => setActiveTab('wins')}
-                  className={cn(
-                    activeTab === 'wins' 
-                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
-                      : 'text-gray-400 hover:text-white'
-                  )}
-                >
-                  <Trophy className="w-4 h-4 mr-2" />
-                  Wins
-                </Button>
-                <Button
-                  variant={activeTab === 'live' ? 'default' : 'ghost'}
-                  onClick={() => setActiveTab('live')}
-                  className={cn(
-                    activeTab === 'live' 
-                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
-                      : 'text-gray-400 hover:text-white'
-                  )}
-                >
-                  <Flame className="w-4 h-4 mr-2" />
-                  Live Bets
-                </Button>
-                <Button
-                  variant={activeTab === 'trending' ? 'default' : 'ghost'}
-                  onClick={() => setActiveTab('trending')}
-                  className={cn(
-                    activeTab === 'trending' 
-                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
-                      : 'text-gray-400 hover:text-white'
-                  )}
-                >
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Trending
-                </Button>
+      <div className="space-y-4 p-4">
+        <AnimatePresence>
+          {posts.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12"
+            >
+              <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+                <Trophy className="w-8 h-8 text-emerald-500" />
               </div>
-            </div>
+              <h3 className="text-xl font-bold text-emerald-400 mb-2">No posts found</h3>
+              <p className="text-gray-400 text-sm">Be the first to create a post!</p>
+            </motion.div>
+          ) : (
+            posts.map((post, index) => {
+              const cardState = cardStates.get(index) || {
+                isLiked: false,
+                isFollowing: false,
+                likeCount: post.likes_count || 0,
+                commentCount: post.comments_count || 0,
+                shareCount: post.shares_count || 0,
+                isSaved: false,
+                showComments: false,
+                comments: [],
+                newComment: '',
+                isSubmittingComment: false,
+              };
 
-            {/* Posts Grid */}
-            <div className="space-y-6">
-              <AnimatePresence>
-                {filteredPosts.length === 0 ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center py-20"
-                  >
-                    <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
-                      <Trophy className="w-10 h-10 text-emerald-500" />
+              const hasImage = post.image_url && post.image_url.trim() !== '';
+              const hasCaption = post.caption && post.caption.trim() !== '';
+
+              return (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <div className="bg-[#111827]/30 rounded-xl border border-[#1F2937]/50 p-5 hover:border-emerald-500/30 transition-all">
+                    {/* Header - matching Flutter layout */}
+                    <div className="flex items-start gap-3 mb-4">
+                      {/* Avatar - matching Flutter */}
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500/30">
+                          <img
+                            src={getAvatarForUser(post.user_id)}
+                            alt={post.user_name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(post.user_name)}&background=10B981&color=fff`;
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* User info */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-white text-base">{post.user_name}</h3>
+
+                          {/* Follow button - matching Flutter */}
+                          {!cardState.isFollowing && post.user_id !== currentUser?.id && (
+                            <button
+                              onClick={() => handleFollow(index)}
+                              className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full border border-emerald-500/20"
+                            >
+                              <UserPlus className="w-3 h-3 text-emerald-400" />
+                              <span className="text-xs text-emerald-400 font-medium">Follow</span>
+                            </button>
+                          )}
+
+                          {/* Outcome badge */}
+                          {post.bet_outcome && (
+                            <Badge className={`px-2 py-0.5 rounded-full text-xs font-medium border backdrop-blur-sm ${getOutcomeColor(post.bet_outcome)}`}>
+                              <span className="mr-1">{getOutcomeIcon(post.bet_outcome)}</span>
+                              {post.bet_outcome === 'win' ? 'Won' : post.bet_outcome === 'loss' ? 'Lost' : 'Live'}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Timestamp */}
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs text-gray-400">{formatTimeAgo(post.created_at)}</span>
+                        </div>
+                      </div>
+
+                      {/* More options */}
+                      <button className="p-1 text-gray-400 hover:text-white">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
                     </div>
-                    <h3 className="text-xl font-bold text-emerald-400 mb-2">No posts found</h3>
-                    <p className="text-gray-400">Try adjusting your filters or create the first post!</p>
-                  </motion.div>
-                ) : (
-                  filteredPosts.map((post, index) => (
-                    <motion.div
-                      key={post.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <DesktopBettingPostCard
-                        post={post}
-                        isLiked={likedPosts.has(post.id)}
-                        isSaved={savedPosts.has(post.id)}
-                        onLike={handleLike}
-                        onSave={handleSave}
-                        formatTimeAgo={formatTimeAgo}
-                        getInitials={getInitials}
-                        getOutcomeColor={getOutcomeColor}
-                        getOutcomeIcon={getOutcomeIcon}
-                      />
-                    </motion.div>
-                  ))
-                )}
-              </AnimatePresence>
 
-              {/* Load More */}
-              {filteredPosts.length > 0 && (
-                <div className="pt-6 border-t border-gray-800/50">
-                  <Button
-                    onClick={fetchPosts}
-                    variant="outline"
-                    className="w-full border-gray-800 text-gray-400 hover:text-white hover:border-emerald-500"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Load More Posts
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+                    {/* Bet info - if available */}
+                    {post.bet_amount && post.odds && (
+                      <div className="mb-4 p-3 rounded-lg bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-emerald-500/10 border border-emerald-500/20">
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <Flame className="h-4 w-4 text-orange-500" />
+                            <span className="font-bold text-white text-sm">₿{post.bet_amount}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <TrendingUp className="h-4 w-4 text-emerald-400" />
+                            <span className="text-emerald-400 font-bold text-sm">{post.odds} odds</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Trophy className="h-4 w-4 text-yellow-500" />
+                            <span className="font-bold text-emerald-400 text-sm">
+                              ₿{(post.bet_amount * parseFloat(post.odds)).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Caption */}
+                    {hasCaption && (
+                      <div className="mb-4">
+                        <p className="text-gray-300 text-sm leading-relaxed">
+                          {post.caption}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Image */}
+                    {hasImage && (
+                      <div className="mb-4 rounded-lg overflow-hidden border border-[#1F2937]/50">
+                        <img
+                          src={post.image_url}
+                          alt={post.caption || `Post by ${post.user_name}`}
+                          className="w-full h-auto max-h-[350px] object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+
+                    {/* Divider */}
+                    <div className="h-px bg-[#1F2937]/50 my-3" />
+
+                    {/* Actions - matching Flutter exactly */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {/* Like button - matching Flutter */}
+                        <button
+                          onClick={() => toggleLike(index, post.id)}
+                          disabled={processingLikes.get(index) === true}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors",
+                            cardState.isLiked
+                              ? "text-emerald-400"
+                              : "text-gray-400 hover:text-white"
+                          )}
+                        >
+                          <Heart
+                            className={cn(
+                              "w-4 h-4 transition-all",
+                              cardState.isLiked && "fill-emerald-400"
+                            )}
+                          />
+                          <span className={cn(
+                            "text-xs",
+                            cardState.isLiked && "font-semibold"
+                          )}>
+                            {formatCount(cardState.likeCount)}
+                          </span>
+                        </button>
+
+                        {/* Comment button - matching Flutter */}
+                        <button
+                          onClick={() => openCommentsModal(index)}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-gray-400 hover:text-white transition-colors"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          <span className="text-xs">{formatCount(cardState.commentCount)}</span>
+                        </button>
+
+                        {/* Save button */}
+                        <button
+                          onClick={() => toggleSave(post.id, index)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors",
+                            cardState.isSaved
+                              ? "text-emerald-400"
+                              : "text-gray-400 hover:text-white"
+                          )}
+                        >
+                          <Bookmark
+                            className={cn(
+                              "w-4 h-4",
+                              cardState.isSaved && "fill-emerald-400"
+                            )}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Share button - matching Flutter */}
+                      <button
+                        onClick={() => openShareModal(index)}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-gray-400 hover:text-white transition-colors"
+                      >
+                        <Share className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Comments section - if expanded */}
+                    {cardState.showComments && (
+                      <div className="mt-4 pt-4 border-t border-[#1F2937]/50">
+                        {/* Comments list */}
+                        <div className="space-y-3 mb-3 max-h-48 overflow-y-auto">
+                          {cardState.comments.map((comment) => (
+                            <div key={comment.id} className="flex gap-2">
+                              <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-emerald-500/30">
+                                <img
+                                  src={getAvatarForUser(comment.user_id)}
+                                  alt={comment.user_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-white">{comment.user_name}</span>
+                                  <span className="text-[10px] text-gray-400">{formatTimeAgo(comment.created_at)}</span>
+                                </div>
+                                <p className="text-xs text-gray-300 mt-1">{comment.content}</p>
+                              </div>
+                            </div>
+                          ))}
+
+                          {cardState.comments.length === 0 && (
+                            <p className="text-xs text-gray-400 text-center py-2">No comments yet</p>
+                          )}
+                        </div>
+
+                        {/* Add comment - matching Flutter */}
+                        {currentUser && (
+                          <div className="flex gap-2">
+                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-emerald-500/30">
+                              <img
+                                src={getAvatarForUser(currentUser.id)}
+                                alt={currentUser.username}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 flex gap-2">
+                              <input
+                                type="text"
+                                value={cardState.newComment}
+                                onChange={(e) => {
+                                  setCardStates(prev => {
+                                    const newMap = new Map(prev);
+                                    const state = newMap.get(index);
+                                    if (state) {
+                                      newMap.set(index, { ...state, newComment: e.target.value });
+                                    }
+                                    return newMap;
+                                  });
+                                }}
+                                placeholder="Write a comment..."
+                                className="flex-1 bg-[#111827]/50 border border-[#1F2937] rounded-lg px-3 py-2 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-emerald-500"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    submitComment(index, post.id);
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => submitComment(index, post.id)}
+                                disabled={!cardState.newComment.trim() || cardState.isSubmittingComment}
+                                className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white"
+                              >
+                                {cardState.isSubmittingComment ? (
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Modals - matching Flutter */}
+      <AnimatePresence>
+        {isChatOpen && selectedPostIndex !== null && posts[selectedPostIndex] && (
+          <ChatModal
+            isOpen={isChatOpen}
+            onClose={closeAllModals}
+            post={posts[selectedPostIndex]}
+            currentUserId={currentUser?.id || ''}
+            currentUserName={currentUser?.username || ''}
+            authToken={currentUser?.token}
+            getAvatarForUser={getAvatarForUser}
+          />
+        )}
+
+        {isShareOpen && selectedPostIndex !== null && posts[selectedPostIndex] && (
+          <ShareModal
+            isOpen={isShareOpen}
+            onClose={closeAllModals}
+            post={posts[selectedPostIndex]}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
-interface DesktopBettingPostCardProps {
-  post: Post;
-  isLiked: boolean;
-  isSaved: boolean;
-  onLike: (postId: string) => void;
-  onSave: (postId: string) => void;
-  formatTimeAgo: (timestamp: number) => string;
-  getInitials: (name: string) => string;
-  getOutcomeColor: (outcome: string) => string;
-  getOutcomeIcon: (outcome: string) => JSX.Element | string;
-}
+// Chat Modal Component
+const ChatModal = ({ isOpen, onClose, post, currentUserId, currentUserName, authToken, getAvatarForUser }: any) => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-const DesktopBettingPostCard: React.FC<DesktopBettingPostCardProps> = ({
-  post,
-  isLiked,
-  isSaved,
-  onLike,
-  onSave,
-  formatTimeAgo,
-  getInitials,
-  getOutcomeColor,
-  getOutcomeIcon,
-}) => {
-  const [showFullCaption, setShowFullCaption] = useState<boolean>(false);
-  const [imageLoaded, setImageLoaded] = useState<boolean>(false);
-  const [imageError, setImageError] = useState<boolean>(false);
+  useEffect(() => {
+    if (isOpen && post?.id) {
+      loadMessages();
+    }
+  }, [isOpen, post?.id]);
 
-  const shouldTruncate = post.caption && post.caption.length > 150;
-  const hasValidImage = post.image_url && post.image_url.trim() !== '';
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-  const handleImageLoad = () => {
-    setImageLoaded(true);
-    setImageError(false);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleImageError = () => {
-    setImageError(true);
-    setImageLoaded(true);
+  const loadMessages = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/posts/${post.id}/messages`, {
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    const message = {
+      id: Date.now().toString(),
+      user_id: currentUserId,
+      user_name: currentUserName,
+      content: newMessage,
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    setMessages(prev => [...prev, message]);
+    setNewMessage('');
+
+    try {
+      await fetch(`${API_BASE_URL}/api/posts/${post.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+        },
+        body: JSON.stringify({
+          user_id: currentUserId,
+          user_name: currentUserName,
+          content: message.content,
+        }),
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+        duration: 2000,
+      });
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <motion.div 
-      whileHover={{ scale: 1.01, y: -2 }}
-      className="bg-gradient-to-br w-full from-gray-900/30 to-black/30 rounded-xl border border-gray-800/50 p-6 backdrop-blur-sm hover:border-emerald-500/30 transition-all group"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50"
+      onClick={onClose}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="w-12 h-12 border-2 border-emerald-500/30">
-            <AvatarFallback className="bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-white font-bold">
-              {getInitials(post.user_name)}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 25 }}
+        className="relative w-full max-w-md bg-[#111827] rounded-t-2xl sm:rounded-2xl border border-[#1F2937] shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[#1F2937]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-emerald-500/30">
+              <img
+                src={getAvatarForUser(post.user_id)}
+                alt={post.user_name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div>
               <h3 className="font-bold text-white">{post.user_name}</h3>
-              <Badge className={`px-2 py-0.5 rounded-full text-xs font-medium border backdrop-blur-sm ${getOutcomeColor(post.bet_outcome || 'pending')}`}>
-                <span className="mr-1">{getOutcomeIcon(post.bet_outcome || 'pending')}</span>
-                {post.bet_outcome === 'win' ? 'Won' : post.bet_outcome === 'loss' ? 'Lost' : 'Live'}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <Clock className="w-3 h-3" />
-              <span>{formatTimeAgo(post.created_at)}</span>
+              <p className="text-xs text-gray-400">Chat</p>
             </div>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-[#1F2937]"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-gray-400 hover:text-white"
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </Button>
-      </div>
 
-      {/* Bet Info */}
-      {post.bet_amount && (
-        <div className="mb-4 p-3 rounded-lg bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-emerald-500/10 border border-emerald-500/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span className="font-bold text-white">₿{post.bet_amount}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-                <span className="text-emerald-400 font-bold">{post.odds} odds</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-yellow-500" />
-                <span className="font-bold text-green-500">₿{(post.bet_amount * parseFloat(post.odds || '1')).toFixed(2)}</span>
-              </div>
+        {/* Messages */}
+        <div className="h-96 overflow-y-auto p-4 space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Caption */}
-      {post.caption && (
-        <div className="mb-4">
-          <p className="text-gray-300 text-sm leading-relaxed">
-            {shouldTruncate && !showFullCaption 
-              ? `${post.caption.slice(0, 150)}...`
-              : post.caption
-            }
-            {shouldTruncate && (
-              <Button
-                variant="link"
-                onClick={() => setShowFullCaption(!showFullCaption)}
-                className="ml-2 text-emerald-400 hover:text-emerald-300 p-0 h-auto"
+          ) : messages.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-400 text-sm">No messages yet</p>
+              <p className="text-xs text-gray-500 mt-1">Start the conversation!</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  "flex",
+                  msg.user_id === currentUserId ? "justify-end" : "justify-start"
+                )}
               >
-                {showFullCaption ? 'Show less' : 'Show more'}
-              </Button>
-            )}
-          </p>
-        </div>
-      )}
-
-      {/* Image */}
-      {hasValidImage && !imageError && (
-        <div className="mb-4 rounded-xl overflow-hidden border border-gray-800/50">
-          <img
-            src={post.image_url}
-            alt={post.caption || `Betting post by ${post.user_name}`}
-            className="w-full h-auto max-h-[400px] object-cover"
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-            loading="lazy"
-          />
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-800/50">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onLike(post.id)}
-            className={cn(
-              "flex items-center gap-2",
-              isLiked ? 'text-red-500 hover:text-red-400' : 'text-gray-400 hover:text-white'
-            )}
-          >
-            <Heart className={cn("h-5 w-5 transition-all", isLiked && "fill-current")} />
-            <span>Like</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex items-center gap-2 text-gray-400 hover:text-white"
-          >
-            <MessageCircle className="h-5 w-5" />
-            <span>Comment</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex items-center gap-2 text-gray-400 hover:text-white"
-          >
-            <Share className="h-5 w-5" />
-            <span>Share</span>
-          </Button>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onSave(post.id)}
-          className={cn(
-            "transition-all",
-            isSaved ? 'text-emerald-500 hover:text-emerald-400' : 'text-gray-400 hover:text-white'
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-lg px-3 py-2",
+                    msg.user_id === currentUserId
+                      ? "bg-emerald-500 text-white"
+                      : "bg-[#1F2937] text-gray-300"
+                  )}
+                >
+                  {msg.user_id !== currentUserId && (
+                    <p className="text-xs font-bold text-emerald-400 mb-1">{msg.user_name}</p>
+                  )}
+                  <p className="text-sm">{msg.content}</p>
+                  <p className="text-[10px] opacity-70 text-right mt-1">
+                    {new Date(msg.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ))
           )}
-        >
-          <Bookmark className={cn("h-5 w-5", isSaved && "fill-current")} />
-        </Button>
-      </div>
-
-      {/* Engagement Stats */}
-      <div className="flex items-center justify-between mt-3 text-sm text-gray-400">
-        <div className="flex items-center gap-4">
-          <span>{Math.floor(Math.random() * 150) + 50} likes</span>
-          <span>•</span>
-          <span>{Math.floor(Math.random() * 25)} comments</span>
-          <span>•</span>
-          <span>{Math.floor(Math.random() * 15)} shares</span>
+          <div ref={messagesEndRef} />
         </div>
-      </div>
 
-      {/* Comment Input */}
-      <div className="mt-4">
-        <div className="flex gap-3">
-          <Avatar className="w-8 h-8">
-            <AvatarFallback className="bg-gradient-to-br from-emerald-500/20 to-cyan-500/20">
-              Y
-            </AvatarFallback>
-          </Avatar>
-          <Input
-            type="text"
-            placeholder="Write a comment..."
-            className="flex-1 bg-gray-900/50 border-gray-800 rounded-full text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-emerald-500/30"
-          />
-          <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full px-4">
-            Post
-          </Button>
+        {/* Input */}
+        <div className="p-4 border-t border-[#1F2937]">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Type a message..."
+              className="flex-1 bg-[#1F2937] border border-[#374151] rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-emerald-500"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!newMessage.trim()}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// Share Modal Component
+const ShareModal = ({ isOpen, onClose, post }: any) => {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const shareUrl = `${window.location.origin}/post/${post.id}`;
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    toast({
+      title: "Link copied!",
+      description: "Post link copied to clipboard",
+      duration: 2000,
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareToTwitter = () => {
+    const text = encodeURIComponent(post.caption ? post.caption.substring(0, 100) : `Check out this post by ${post.user_name}`);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+    onClose();
+  };
+
+  const shareToFacebook = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+    onClose();
+  };
+
+  const shareToWhatsApp = () => {
+    const text = encodeURIComponent(`${post.caption ? post.caption.substring(0, 100) : `Check out this post by ${post.user_name}`} ${shareUrl}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+    onClose();
+  };
+
+  const shareToLinkedIn = () => {
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 25 }}
+        className="relative w-full max-w-md bg-[#111827] rounded-t-2xl sm:rounded-2xl border border-[#1F2937] shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[#1F2937]">
+          <div className="flex items-center gap-2">
+            <Share className="w-5 h-5 text-emerald-400" />
+            <h3 className="font-bold text-white">Share Post</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-[#1F2937]"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Post Preview */}
+        <div className="p-4 border-b border-[#1F2937] bg-[#1F2937]/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg overflow-hidden bg-emerald-500/20 flex items-center justify-center">
+              {post.image_url ? (
+                <img src={post.image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <MessageCircle className="w-5 h-5 text-emerald-400" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{post.user_name}</p>
+              <p className="text-xs text-gray-400 truncate">
+                {post.caption ? post.caption.substring(0, 60) : 'No caption'}
+                {post.caption && post.caption.length > 60 ? '...' : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Share options */}
+        <div className="p-4 space-y-2">
+          <button
+            onClick={copyToClipboard}
+            className="w-full flex items-center gap-3 p-3 bg-[#1F2937] hover:bg-[#374151] rounded-lg transition-colors group"
+          >
+            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center group-hover:bg-gray-600">
+              {copied ? (
+                <Check className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <Copy className="w-5 h-5 text-gray-300" />
+              )}
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-white font-medium">{copied ? 'Copied!' : 'Copy Link'}</p>
+              <p className="text-xs text-gray-400">{shareUrl}</p>
+            </div>
+          </button>
+
+          <button
+            onClick={shareToTwitter}
+            className="w-full flex items-center gap-3 p-3 bg-[#1F2937] hover:bg-[#374151] rounded-lg transition-colors"
+          >
+            <div className="w-10 h-10 bg-[#1DA1F2]/20 rounded-full flex items-center justify-center">
+              <Twitter className="w-5 h-5 text-[#1DA1F2]" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-white font-medium">Twitter</p>
+              <p className="text-xs text-gray-400">Share on Twitter</p>
+            </div>
+          </button>
+
+          <button
+            onClick={shareToFacebook}
+            className="w-full flex items-center gap-3 p-3 bg-[#1F2937] hover:bg-[#374151] rounded-lg transition-colors"
+          >
+            <div className="w-10 h-10 bg-[#4267B2]/20 rounded-full flex items-center justify-center">
+              <Facebook className="w-5 h-5 text-[#4267B2]" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-white font-medium">Facebook</p>
+              <p className="text-xs text-gray-400">Share on Facebook</p>
+            </div>
+          </button>
+
+          <button
+            onClick={shareToWhatsApp}
+            className="w-full flex items-center gap-3 p-3 bg-[#1F2937] hover:bg-[#374151] rounded-lg transition-colors"
+          >
+            <div className="w-10 h-10 bg-[#25D366]/20 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.554 4.177 1.607 6.007L.525 23.393l5.464-1.082C7.752 23.193 9.823 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.822 0-3.608-.5-5.15-1.445l-.37-.22-3.236.64.642-3.236-.22-.37C2.5 15.608 2 13.822 2 12 2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z" />
+              </svg>
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-white font-medium">WhatsApp</p>
+              <p className="text-xs text-gray-400">Share on WhatsApp</p>
+            </div>
+          </button>
+
+          <button
+            onClick={shareToLinkedIn}
+            className="w-full flex items-center gap-3 p-3 bg-[#1F2937] hover:bg-[#374151] rounded-lg transition-colors"
+          >
+            <div className="w-10 h-10 bg-[#0A66C2]/20 rounded-full flex items-center justify-center">
+              <Linkedin className="w-5 h-5 text-[#0A66C2]" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-white font-medium">LinkedIn</p>
+              <p className="text-xs text-gray-400">Share on LinkedIn</p>
+            </div>
+          </button>
+        </div>
+
+        {/* Cancel button */}
+        <div className="p-4 border-t border-[#1F2937]">
+          <button
+            onClick={onClose}
+            className="w-full py-2 text-gray-400 hover:text-white text-sm font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      </motion.div>
     </motion.div>
   );
 };
