@@ -1,10 +1,10 @@
 import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { 
-  User, 
-  Phone, 
-  Trophy, 
+import {
+  User,
+  Phone,
+  Trophy,
   X,
   Hash,
   ArrowLeft,
@@ -43,7 +43,7 @@ interface UserData {
 
 export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModalProps) => {
   const API_BASE_URL = 'https://fanclash-api.onrender.com';
-  
+
   const [currentPage, setCurrentPage] = useState<'view' | 'edit' | 'deposit' | 'withdraw'>('view');
   const [isProcessing, setIsProcessing] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
@@ -105,20 +105,20 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
   const checkUserSession = async () => {
     try {
       setIsSyncing(true);
-      
+
       const isForcedNewUser = localStorage.getItem('forceNewUser') === 'true';
       const sessionToken = localStorage.getItem('sessionToken');
       const userProfile = localStorage.getItem('userProfile');
-      
+
       if (isForcedNewUser || !sessionToken || !userProfile) {
         setIsNewUser(true);
         setCurrentPage('edit');
         localStorage.removeItem('forceNewUser');
         return;
       }
-      
+
       await loadUserFromBackend();
-      
+
     } catch (error) {
       console.error('Session check error:', error);
       setIsNewUser(true);
@@ -169,27 +169,27 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
   const findUserByPhone = async (phone: string): Promise<UserData | null> => {
     try {
       const cleanPhone = phone.replace(/\D/g, '');
-      
+
       const phoneFormats = [];
       phoneFormats.push(cleanPhone);
-      
+
       if (cleanPhone.startsWith('0')) {
         phoneFormats.push(cleanPhone.substring(1));
       }
-      
+
       if (cleanPhone.length === 9) {
         phoneFormats.push('254' + cleanPhone);
       } else if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
         phoneFormats.push('254' + cleanPhone.substring(1));
       }
-      
+
       for (const phoneFormat of phoneFormats) {
         try {
           const response = await fetch(`${API_BASE_URL}/api/profile/profile/phone/${phoneFormat}`);
-          
+
           if (response.ok) {
             const backendUser = await response.json();
-            
+
             return {
               user_id: backendUser.user_id,
               username: backendUser.username || '',
@@ -205,7 +205,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
           console.log(`Format ${phoneFormat} not found:`, error);
         }
       }
-      
+
       return null;
     } catch (error) {
       console.log('Error finding user by phone:', error);
@@ -215,19 +215,19 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
   const formatPhoneTo254 = (phone: string): string => {
     const clean = phone.replace(/\D/g, '');
-    
+
     if (clean.length === 12 && clean.startsWith('254')) {
       return clean;
     }
-    
+
     if (clean.length === 10 && clean.startsWith('0')) {
       return '254' + clean.substring(1);
     }
-    
+
     if (clean.length === 9) {
       return '254' + clean;
     }
-    
+
     return clean;
   };
 
@@ -235,10 +235,10 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
   const loadUserFromBackend = async () => {
     try {
       setIsSyncing(true);
-      
+
       const saved = localStorage.getItem('userProfile');
       let localPhone = '';
-      
+
       if (saved) {
         try {
           const localData = JSON.parse(saved);
@@ -247,28 +247,28 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
           console.log('Error parsing local data:', error);
         }
       }
-      
+
       if (localPhone) {
         const backendUser = await findUserByPhone(localPhone);
-        
+
         if (backendUser) {
           setUserData(backendUser);
           setDepositPhone(backendUser.phone);
           setWithdrawPhone(backendUser.phone);
           localStorage.setItem('userProfile', JSON.stringify(backendUser));
-          
+
           const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           localStorage.setItem('sessionToken', sessionToken);
-          
+
           setCurrentPage('view');
           setIsSyncing(false);
           return;
         }
       }
-      
+
       setIsNewUser(true);
       setCurrentPage('edit');
-      
+
     } catch (error) {
       console.error('Error loading user:', error);
       setIsNewUser(true);
@@ -281,15 +281,15 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
   // Sync data from backend
   const syncFromBackend = async (showToast: boolean = false) => {
     if (!userData.phone) return;
-    
+
     try {
       setIsSyncing(true);
       const backendUser = await findUserByPhone(userData.phone);
-      
+
       if (backendUser) {
         setUserData(backendUser);
         localStorage.setItem('userProfile', JSON.stringify(backendUser));
-        
+
         if (showToast) {
           showSuccess('Synced with server!');
         }
@@ -322,7 +322,7 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
       const formattedPhone = formatPhoneTo254(userData.phone);
       const userId = userData.user_id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const profileData = {
         user_id: userId,
         username: userData.username || "User",
@@ -342,52 +342,52 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
 
       if (response.ok) {
         const result = await response.json();
-        
+
         const updatedData: UserData = {
           ...userData,
           user_id: result.user_id || userId,
           balance: result.balance || userData.balance
         };
-        
+
         setUserData(updatedData);
         setDepositPhone(updatedData.phone);
         setWithdrawPhone(updatedData.phone);
-        
+
         localStorage.setItem('userProfile', JSON.stringify(updatedData));
         const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem('sessionToken', sessionToken);
         localStorage.removeItem('forceNewUser');
-        
+
         setIsNewUser(false);
         showSuccess('Profile saved successfully!');
         setCurrentPage('view');
       } else {
         const errorText = await response.text();
-        
+
         const updateResponse = await fetch(`${API_BASE_URL}/api/profile/profiles/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(profileData),
         });
-        
+
         if (updateResponse.ok) {
           const result = await updateResponse.json();
-          
+
           const updatedData: UserData = {
             ...userData,
             user_id: result.user_id || userId,
             balance: result.balance || userData.balance
           };
-          
+
           setUserData(updatedData);
           setDepositPhone(updatedData.phone);
           setWithdrawPhone(updatedData.phone);
-          
+
           localStorage.setItem('userProfile', JSON.stringify(updatedData));
           const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           localStorage.setItem('sessionToken', sessionToken);
           localStorage.removeItem('forceNewUser');
-          
+
           setIsNewUser(false);
           showSuccess('Profile updated successfully!');
           setCurrentPage('view');
@@ -402,145 +402,145 @@ export const UserProfileModal = ({ isOpen, onClose, onLogout }: UserProfileModal
       setIsProcessing(false);
     }
   };
-const handleDeposit = async () => {
-  console.log('🚀 DEPOSIT STARTED');
-  
-  // Validation (same as before)
-  if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
-    showError('Enter valid amount');
-    return;
-  }
+  const handleDeposit = async () => {
+    console.log('🚀 DEPOSIT STARTED');
 
-  const amount = Number(depositAmount);
-  
-  try {
-    setIsProcessing(true);
-    showLoading('Initiating payment...', 'deposit-processing');
-
-    // Get user ID
-    let userId = userData.user_id;
-    if (!userId) {
-      const backendUser = await findUserByPhone(depositPhone);
-      if (backendUser) {
-        userId = backendUser.user_id;
-        setUserData(backendUser);
-        localStorage.setItem('userProfile', JSON.stringify(backendUser));
-      } else {
-        throw new Error('User not found. Please save your profile first.');
-      }
+    // Validation (same as before)
+    if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
+      showError('Enter valid amount');
+      return;
     }
 
-    // Format phone
-    const cleanPhone = depositPhone.replace(/\D/g, '');
-    let formattedPhone = cleanPhone.startsWith('0') ? '254' + cleanPhone.substring(1) :
-                        cleanPhone.length === 9 ? '254' + cleanPhone : cleanPhone;
+    const amount = Number(depositAmount);
 
-    // Step 1: Initiate STK Push
-    console.log('📤 Initiating STK Push');
-    const stkResponse = await fetch(`${API_BASE_URL}/api/mpesa/stk-push`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone_number: formattedPhone,
-        amount: amount.toString(),
-        account_reference: userId,
-        transaction_desc: "FanClash Deposit"
-      }),
-    });
+    try {
+      setIsProcessing(true);
+      showLoading('Initiating payment...', 'deposit-processing');
 
-    if (!stkResponse.ok) {
-      const error = await stkResponse.json();
-      throw new Error(error.error || 'Failed to initiate payment');
-    }
-
-    const stkResult = await stkResponse.json();
-    const checkoutRequestID = stkResult.checkout_request_id;
-    
-    if (!checkoutRequestID) {
-      throw new Error('Payment initiation failed');
-    }
-
-    console.log('✅ STK Push sent. Checkout ID:', checkoutRequestID);
-    showLoading('Complete payment on your phone...', 'deposit-processing');
-
-    // Step 2: Poll for confirmation
-    let paymentConfirmed = false;
-    let attempts = 0;
-    const maxAttempts = 30; // 90 seconds
-    
-    while (!paymentConfirmed && attempts < maxAttempts) {
-      attempts++;
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      try {
-        const statusResponse = await fetch(`${API_BASE_URL}/api/mpesa/check-payment-status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ checkout_request_id: checkoutRequestID }),
-        });
-        
-        if (statusResponse.ok) {
-          const statusData = await statusResponse.json();
-          console.log(`📊 Poll ${attempts}:`, statusData);
-          
-          if (statusData.status === 'completed') {
-            console.log('✅ Payment confirmed!');
-            paymentConfirmed = true;
-            
-            // Update balance
-            const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                user_id: userId,
-                balance: userData.balance + amount
-              }),
-            });
-            
-            if (updateResponse.ok) {
-              const updatedUser = await updateResponse.json();
-              const newUserData = { ...userData, balance: updatedUser.balance };
-              setUserData(newUserData);
-              localStorage.setItem('userProfile', JSON.stringify(newUserData));
-              
-              showSuccess(`Deposit successful! +Ksh ${amount.toLocaleString()} added!`);
-              setDepositAmount('');
-              setCurrentPage('view');
-              return;
-            }
-          } else if (statusData.status === 'failed') {
-            throw new Error(statusData.result_desc || 'Payment failed');
-          }
+      // Get user ID
+      let userId = userData.user_id;
+      if (!userId) {
+        const backendUser = await findUserByPhone(depositPhone);
+        if (backendUser) {
+          userId = backendUser.user_id;
+          setUserData(backendUser);
+          localStorage.setItem('userProfile', JSON.stringify(backendUser));
+        } else {
+          throw new Error('User not found. Please save your profile first.');
         }
-      } catch (pollError) {
-        console.log(`⚠️ Poll ${attempts} error:`, pollError);
       }
+
+      // Format phone
+      const cleanPhone = depositPhone.replace(/\D/g, '');
+      let formattedPhone = cleanPhone.startsWith('0') ? '254' + cleanPhone.substring(1) :
+        cleanPhone.length === 9 ? '254' + cleanPhone : cleanPhone;
+
+      // Step 1: Initiate STK Push
+      console.log('📤 Initiating STK Push');
+      const stkResponse = await fetch(`${API_BASE_URL}/api/lipaclash/stk-push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone_number: formattedPhone,
+          amount: amount.toString(),
+          account_reference: userId,
+          transaction_desc: "FanClash Deposit"
+        }),
+      });
+
+      if (!stkResponse.ok) {
+        const error = await stkResponse.json();
+        throw new Error(error.error || 'Failed to initiate payment');
+      }
+
+      const stkResult = await stkResponse.json();
+      const checkoutRequestID = stkResult.checkout_request_id;
+
+      if (!checkoutRequestID) {
+        throw new Error('Payment initiation failed');
+      }
+
+      console.log('✅ STK Push sent. Checkout ID:', checkoutRequestID);
+      showLoading('Complete payment on your phone...', 'deposit-processing');
+
+      // Step 2: Poll for confirmation
+      let paymentConfirmed = false;
+      let attempts = 0;
+      const maxAttempts = 30; // 90 seconds
+
+      while (!paymentConfirmed && attempts < maxAttempts) {
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        try {
+          const statusResponse = await fetch(`${API_BASE_URL}/api/lipaclash/check-payment-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ checkout_request_id: checkoutRequestID }),
+          });
+
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+            console.log(`📊 Poll ${attempts}:`, statusData);
+
+            if (statusData.status === 'completed') {
+              console.log('✅ Payment confirmed!');
+              paymentConfirmed = true;
+
+              // Update balance
+              const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user_id: userId,
+                  balance: userData.balance + amount
+                }),
+              });
+
+              if (updateResponse.ok) {
+                const updatedUser = await updateResponse.json();
+                const newUserData = { ...userData, balance: updatedUser.balance };
+                setUserData(newUserData);
+                localStorage.setItem('userProfile', JSON.stringify(newUserData));
+
+                showSuccess(`Deposit successful! +Ksh ${amount.toLocaleString()} added!`);
+                setDepositAmount('');
+                setCurrentPage('view');
+                return;
+              }
+            } else if (statusData.status === 'failed') {
+              throw new Error(statusData.result_desc || 'Payment failed');
+            }
+          }
+        } catch (pollError) {
+          console.log(`⚠️ Poll ${attempts} error:`, pollError);
+        }
+      }
+
+      if (!paymentConfirmed) {
+        throw new Error('Payment timeout. Please check if payment was completed.');
+      }
+
+    } catch (error) {
+      console.error('💥 Deposit error:', error);
+
+      // User-friendly error messages
+      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
+
+      if (errorMessage.includes('timeout')) {
+        showError('Payment not completed in time. Please check your M-Pesa.');
+      } else if (errorMessage.includes('2001')) {
+        showError('Wrong PIN entered or transaction cancelled.');
+      } else if (errorMessage.includes('Database error')) {
+        showError('Temporary server issue. Please check transaction status.');
+      } else {
+        showError(errorMessage);
+      }
+
+    } finally {
+      setIsProcessing(false);
     }
-    
-    if (!paymentConfirmed) {
-      throw new Error('Payment timeout. Please check if payment was completed.');
-    }
-    
-  } catch (error) {
-    console.error('💥 Deposit error:', error);
-    
-    // User-friendly error messages
-    const errorMessage = error instanceof Error ? error.message : 'Payment failed';
-    
-    if (errorMessage.includes('timeout')) {
-      showError('Payment not completed in time. Please check your M-Pesa.');
-    } else if (errorMessage.includes('2001')) {
-      showError('Wrong PIN entered or transaction cancelled.');
-    } else if (errorMessage.includes('Database error')) {
-      showError('Temporary server issue. Please check transaction status.');
-    } else {
-      showError(errorMessage);
-    }
-    
-  } finally {
-    setIsProcessing(false);
-  }
-};
+  };
 
   // Handle withdrawal
   const handleWithdraw = async () => {
@@ -550,7 +550,7 @@ const handleDeposit = async () => {
     }
 
     const amount = Number(withdrawAmount);
-    
+
     if (amount < 0) {
       showError('Minimum withdrawal is Ksh 50');
       return;
@@ -562,7 +562,7 @@ const handleDeposit = async () => {
     }
 
     const phoneNumber = withdrawPhone || userData.phone;
-    
+
     if (!phoneNumber) {
       showError('Please set your phone number first');
       return;
@@ -573,8 +573,8 @@ const handleDeposit = async () => {
       showLoading('Processing withdrawal...', 'withdraw-processing');
 
       const formattedPhone = formatPhoneTo254(phoneNumber);
-      
-      const withdrawResponse = await fetch(`${API_BASE_URL}/api/mpesa/b2c/send`, {
+
+      const withdrawResponse = await fetch(`${API_BASE_URL}/api/lipaclash/b2c/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -589,9 +589,9 @@ const handleDeposit = async () => {
       const withdrawResult = await withdrawResponse.json();
 
       if (!withdrawResponse.ok) {
-        const errorMessage = withdrawResult.error || 
-                          withdrawResult.response_description || 
-                          'Withdrawal request failed';
+        const errorMessage = withdrawResult.error ||
+          withdrawResult.response_description ||
+          'Withdrawal request failed';
         throw new Error(errorMessage);
       }
 
@@ -608,7 +608,7 @@ const handleDeposit = async () => {
       const newBalance = userData.balance - amount;
 
       showLoading('Updating balance...', 'update-withdraw-balance');
-      
+
       const updateResponse = await fetch(`${API_BASE_URL}/api/profile/update-balance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -617,17 +617,17 @@ const handleDeposit = async () => {
           balance: newBalance
         }),
       });
-      
+
       if (updateResponse.ok) {
         const updatedUser = await updateResponse.json();
-        
-        const updatedLocalData = { 
-          ...userData, 
+
+        const updatedLocalData = {
+          ...userData,
           balance: updatedUser.balance || newBalance,
         };
         localStorage.setItem('userProfile', JSON.stringify(updatedLocalData));
         setUserData(updatedLocalData);
-        
+
         setRecentTransaction(-amount);
         setTimeout(() => setRecentTransaction(null), 3000);
         showSuccess(`Withdrawal of Ksh ${amount.toLocaleString()} processing!`);
@@ -658,9 +658,9 @@ const handleDeposit = async () => {
       localStorage.removeItem('userProfile');
       localStorage.removeItem('sessionToken');
       localStorage.setItem('forceNewUser', 'true');
-      
+
       sessionStorage.clear();
-      
+
       setUserData({
         username: '',
         phone: '',
@@ -671,7 +671,7 @@ const handleDeposit = async () => {
         number_of_bets: 0,
         user_id: ''
       });
-      
+
       setCurrentPage('edit');
       setIsNewUser(true);
       setDepositAmount('');
@@ -679,16 +679,16 @@ const handleDeposit = async () => {
       setWithdrawAmount('');
       setWithdrawPhone('');
       setRecentTransaction(null);
-      
+
       if (onLogout) {
         onLogout();
       }
-      
+
       toast.success('Successfully logged out!', {
         id: 'logout',
         duration: 3000,
       });
-      
+
     } catch (error) {
       console.error('Logout error:', error);
       showError('Error during logout.');
@@ -770,10 +770,10 @@ const handleDeposit = async () => {
         >
           {/* Main content with glass effect - NO borders */}
           <div className="relative bg-gradient-to-br from-white/[0.08] to-white/[0.04] backdrop-blur-xl rounded-t-2xl overflow-hidden border-t border-white/[0.15]">
-            
+
             {/* Glass effect overlay */}
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-emerald-600/[0.03] pointer-events-none" />
-            
+
             {/* Header with glass effect */}
             <div className="relative px-4 py-3 border-b border-white/[0.15] backdrop-blur-sm">
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.05] via-transparent to-emerald-600/[0.05] opacity-50" />
@@ -794,9 +794,9 @@ const handleDeposit = async () => {
                   <div>
                     <div className="flex items-center gap-1">
                       <h2 className="text-white text-sm font-bold">
-                        {currentPage === 'view' ? (isNewUser ? 'Welcome!' : 'Profile') : 
-                         currentPage === 'edit' ? (hasUserData && !isNewUser ? 'Edit Profile' : 'Setup Profile') : 
-                         currentPage === 'deposit' ? 'Deposit Funds' : 'Withdraw Cash'}
+                        {currentPage === 'view' ? (isNewUser ? 'Welcome!' : 'Profile') :
+                          currentPage === 'edit' ? (hasUserData && !isNewUser ? 'Edit Profile' : 'Setup Profile') :
+                            currentPage === 'deposit' ? 'Deposit Funds' : 'Withdraw Cash'}
                       </h2>
                       {currentPage === 'view' && hasUserData && !isNewUser && (
                         <Sparkles className="h-3 w-3 text-emerald-300 animate-pulse" />
@@ -857,7 +857,7 @@ const handleDeposit = async () => {
                         <p className="text-white/[0.6] text-sm mb-4">
                           Create your profile to start betting
                         </p>
-                        
+
                         <div className="space-y-2">
                           <motion.button
                             whileHover={{ scale: 1.03 }}
@@ -867,7 +867,7 @@ const handleDeposit = async () => {
                           >
                             Create Profile
                           </motion.button>
-                          
+
                           <motion.button
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.98 }}
@@ -884,7 +884,7 @@ const handleDeposit = async () => {
                         {/* Stats Cards with glass effect */}
                         <div className="grid grid-cols-2 gap-3 mb-4">
                           {/* Balance Card */}
-                          <motion.div 
+                          <motion.div
                             whileHover={{ scale: 1.02, y: -2 }}
                             className="relative overflow-hidden bg-white/[0.05] border border-white/[0.1] rounded-xl p-3 backdrop-blur-sm"
                           >
@@ -900,7 +900,7 @@ const handleDeposit = async () => {
                                 {isSyncing ? 'Syncing...' : 'Live'}
                               </div>
                             </div>
-                            
+
                             {/* Text-only action buttons (no background) */}
                             <div className="flex gap-2 mt-2">
                               <motion.span
@@ -912,7 +912,7 @@ const handleDeposit = async () => {
                                 <ArrowUpRight className="h-3 w-3" />
                                 Add Funds
                               </motion.span>
-                              
+
                               {canWithdraw && (
                                 <motion.span
                                   whileHover={{ scale: 1.05 }}
@@ -925,7 +925,7 @@ const handleDeposit = async () => {
                                 </motion.span>
                               )}
                             </div>
-                            
+
                             {/* Recent transaction */}
                             {recentTransaction && (
                               <motion.div
@@ -942,7 +942,7 @@ const handleDeposit = async () => {
                           </motion.div>
 
                           {/* Bets Card */}
-                          <motion.div 
+                          <motion.div
                             whileHover={{ scale: 1.02, y: -2 }}
                             className="relative bg-white/[0.05] border border-white/[0.1] rounded-xl p-3 backdrop-blur-sm"
                           >
@@ -997,7 +997,7 @@ const handleDeposit = async () => {
                             >
                               Switch Account
                             </motion.button>
-                            
+
                             <motion.button
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
@@ -1054,7 +1054,7 @@ const handleDeposit = async () => {
                       ))}
 
                       {/* Info Note */}
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.3 }}
@@ -1352,11 +1352,10 @@ const handleDeposit = async () => {
                                 }
                               }}
                               disabled={amt > userData.balance}
-                              className={`py-1.5 border rounded text-xs backdrop-blur-sm ${
-                                amt > userData.balance
+                              className={`py-1.5 border rounded text-xs backdrop-blur-sm ${amt > userData.balance
                                   ? 'bg-white/[0.03] border-white/[0.1] text-white/[0.3] cursor-not-allowed'
                                   : 'bg-white/[0.05] border-white/[0.1] text-white hover:bg-white/[0.08] hover:border-white/[0.2]'
-                              }`}
+                                }`}
                             >
                               Ksh {amt}
                             </motion.button>
